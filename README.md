@@ -1,84 +1,211 @@
-This is an example Maven project implementing an ImageJ 1.x plugin.
+# FluoCode Reader
 
-For an example Maven project implementing an **ImageJ2 command**, see:
-    https://github.com/imagej/example-imagej2-command
+An ImageJ / Fiji plugin suite for decoding multiplexed fluorescent barcodes (FluoCodes) from multichannel images and quantifying them per region.
 
-It is intended as an ideal starting point to develop new ImageJ 1.x plugins
-in an IDE of your choice. You can even collaborate with developers using a
-different IDE than you.
+Each FluoCode is defined by a **pair of channels**. For an image with *N* channels, all *N*(*N*−1)/2 channel pairs are evaluated, and each pair corresponds to one FluoCode label.
 
-* In [Eclipse](http://eclipse.org), for example, it is as simple as
-  _File &#8250; Import... &#8250; Existing Maven Project_.
+## Menu
 
-* In [NetBeans](http://netbeans.org), it is even simpler:
-  _File &#8250; Open Project_.
+After installation, the tools appear under **Plugins › FluoCode Reader**:
 
-* The same works in [IntelliJ](http://jetbrains.net).
+| Command | Purpose |
+|---|---|
+| **FluoCode Reader...** | Main tool. Generates FluoCode probability maps from unmixed multichannel images, and optionally decodes them into a label image. |
+| **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a FluoCode label image, without re-running the classifiers. |
+| **Count Decoded Pixels per Region...** | Counts decoded FluoCode pixels within each region of a segmentation image. |
 
-* If [jEdit](http://jedit.org) is your preferred IDE, you will need the
-  [Maven Plugin](http://plugins.jedit.org/plugins/?MavenPlugin).
+Typical workflow: **FluoCode Reader** → (optionally) **Decode FluoCodes from Probability Map** → **Count Decoded Pixels per Region**.
 
-Die-hard command-line developers can use Maven directly by calling `mvn`
-in the project root.
+## Requirements
 
-However you build the project, in the end you will have the `.jar` file
-(called *artifact* in Maven speak) in the `target/` subdirectory.
+- Fiji (or ImageJ 1.x), Java 8 or later
+- One of the following, depending on the classifier file used in FluoCode Reader:
+    - **ilastik** ImageJ plugin — for `.ilp` project files (`Run Pixel Classification Prediction`)
+    - **Labkit** — for Labkit classifier files (`Calculate Probability Map With Labkit`; run with the GPU option enabled)
 
-To copy the artifact into the correct place, you can call
-`mvn -Dscijava.app.directory=/path/to/ImageJ.app/`.
-This will not only copy your artifact, but also all the dependencies. Restart
-your ImageJ or call *Help &#8250; Refresh Menus* to see your plugin in the menus.
+## Installation
 
-Developing plugins in an IDE is convenient, especially for debugging. To
-that end, the plugin contains a `main` method which sets the `plugins.dir`
-system property (so that the plugin is added to the Plugins menu), starts
-ImageJ, loads an image and runs the plugin. See also
-[this page](https://imagej.net/Debugging#Debugging_plugins_in_an_IDE_.28Netbeans.2C_IntelliJ.2C_Eclipse.2C_etc.29)
-for information how ImageJ makes it easier to debug in IDEs.
+1. Download `FluoCode_Reader-1.0.0.jar` from the [Releases](https://github.com/daichimori/FluoCode_Reader/releases) page.
+2. Copy it into the `plugins` folder of Fiji. If an older version of the JAR is present, remove it first.
+3. Restart Fiji.
 
-Since this project is intended as a starting point for your own
-developments, it is in the public domain.
+---
 
-How to use this project as a starting point
-===========================================
+## FluoCode Reader...
 
-1. Visit [this link](https://github.com/imagej/example-legacy-plugin/generate)
-   to create a new repository in your space using this one as a template.
+### Input
 
-2. [Clone your new repository](https://help.github.com/en/articles/cloning-a-repository).
+A drop-down list lets you choose one of the following:
 
-3. Edit the `pom.xml` file. Every entry should be pretty self-explanatory.
-   In particular, change
-    1. the *artifactId* (**NOTE**: should contain a '_' character)
-    2. the *groupId*, ideally to a reverse domain name your organization owns
-    3. the *version* (note that you typically want to use a version number
-       ending in *-SNAPSHOT* to mark it as a work in progress rather than a
-       final version)
-    4. the *dependencies* (read how to specify the correct
-       *groupId/artifactId/version* triplet
-       [here](https://imagej.net/Maven#How_to_find_a_dependency.27s_groupId.2FartifactId.2Fversion_.28GAV.29.3F))
-    5. the *developer* information
-    6. the *scm* information
+- **An open image** — every image currently open in Fiji is listed. The image is processed as displayed and is not closed afterwards.
+- **Image file...** — a single image file.
+- **Folder...** — every file in the folder that Fiji can open is processed.
 
-4. Remove the `Process_Pixels.java` file and add your own `.java` files
-   to `src/main/java/<package>/` (if you need supporting files -- like icons
-   -- in the resulting `.jar` file, put them into `src/main/resources/`)
+Each image should be an **unmixed multichannel image**. Only the first z-slice and time point are used.
 
-5. Edit `src/main/resources/plugins.config`
+### Processing overview
 
-6. Replace the contents of `README.md` with information about your project.
+1. **Single-channel probability.** Each channel is classified on its own (optionally after unmixing-group subtraction, see below).
+2. **Pair signal.** For each channel pair (*a*, *b*):
+   `diff = max(0, min(a, b) − max(other channels) × Leak Tolerance)`
+   with optional FRET leakage correction applied to `min(a, b)` beforehand.
+3. **Pair probability.** `diff` is classified with the same classifier.
+4. **Final probability.** For each pair, the per-pixel minimum of the two single-channel probabilities and the pair probability.
 
-7. Make your initial
-   [commit](https://help.github.com/en/desktop/contributing-to-projects/committing-and-reviewing-changes-to-your-project) and
-   [push the results](https://help.github.com/en/articles/pushing-commits-to-a-remote-repository)!
+### Options
 
-### Eclipse: To ensure that Maven copies the plugin to your ImageJ folder
+| Option | Description |
+|---|---|
+| Save directory | Output folder (required). |
+| Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
+| Leak Tolerance (0–1) | Fraction of the brightest *other* channel subtracted from each pair signal. Higher values make pair calling stricter. |
+| Additional unmixing for FRET | Opens a table of rows (Channel A, Channel B, Channel C, Leakage Level *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted from the pair signal. Channel C must differ from A and B. |
+| Save Probability Map stack | Saves the final probability of every pair (8-bit, one slice per pair). On by default. |
+| Save MinDiff stack | Saves the `diff` image of every pair (16-bit). |
+| Save FinalLabel image | Saves the decoded label image (see below). |
+| FinalLabel threshold (0.1–1) | Pixels whose highest pair probability is below this value are labeled 0. |
+| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are labeled 255 in FinalLabel. Intended for 16-bit raw images. |
+| Use Unmixing Groups / Group 1–3 | Each field defines one group of channels, e.g. `1,2,3` or `4-6`. Before single-channel classification, each channel in a group has the brightest other channel of the same group × Unmix Strength subtracted. Pair signals are not affected. |
+| Unmix Strength (0–1) | Subtraction factor for unmixing groups. |
+| Special Classifier File (optional) | Alternative classifier for single-channel classification of high-background channels. |
+| Channels using special classifier | Channels (1-based, comma-separated, e.g. `3,5`) that use the special classifier. |
 
-1. Go to _Run Configurations..._
-2. Choose _Maven Build_
-3. Add the following parameter:
-    - name: `scijava.app.directory`
-    - value: `/path/to/ImageJ.app/`
+At least one output must be selected.
 
-This ensures that the final `.jar` file will also be copied to
-your ImageJ plugins folder everytime you run the Maven build.
+### Pair numbering
+
+Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1,*N*). This number is the slice index in the probability map stack and the label value in FinalLabel.
+
+### Output files
+
+| File | Content |
+|---|---|
+| `Prob_<name>.tif` | Final probability map stack (8-bit, 0–255) |
+| `MinDiffStack_<name>.tif` | Pair difference stack (16-bit) |
+| `FinalLabel_<name>.tif` | 8-bit label image: 0 = background, 1…*N*(*N*−1)/2 = FluoCode (pair number), 255 = saturated. A label LUT is applied. |
+
+All parameters are written to the Log window, followed by per-channel and per-pair progress, the processing time of each image, and the total processing time.
+
+---
+
+## Decode FluoCodes from Probability Map...
+
+Decodes a probability map stack (for example, `Prob_<name>.tif` from FluoCode Reader) into a label image. Useful for re-decoding with a different threshold or with some FluoCodes excluded, without re-running the classifiers.
+
+### Input
+
+The same drop-down list as FluoCode Reader (an open image, an image file, or a folder).
+
+- When **an open image** is selected, the result is also displayed.
+- When **a folder** is selected, only files whose names start with `Prob_` are processed, so that other outputs of FluoCode Reader in the same folder are skipped. The number of skipped files is written to the Log.
+
+### Options
+
+| Option | Description |
+|---|---|
+| Save directory | Output folder (required). |
+| Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. |
+| Slices to exclude | Slices (1-based, comma-separated, e.g. `3,5`) that are ignored during decoding. Numbers that do not exist in the image are reported in the Log. |
+| LUT file (optional) | LUT applied to the output. If empty, the same label palette as FluoCode Reader is used. |
+
+### Decoding rule
+
+Each pixel is assigned the slice number in which it has the highest value (the first slice wins on ties). The decoding rule and the threshold are the same as for FinalLabel in FluoCode Reader, so the same probability map and threshold give the same labels.
+
+- Slices in which every pixel is 128 (probability 0.5 everywhere, i.e. no classifier output) are skipped automatically and reported in the Log.
+- 8-bit and 16-bit maps are scaled to 0–1 before thresholding; 32-bit maps are assumed to contain probabilities in 0–1.
+- Saturated pixels cannot be identified from a probability map, so label 255 is not used.
+- Stacks with more than 254 slices are not supported.
+
+### Output files
+
+| File | Content |
+|---|---|
+| `Decoded_<name>.tif` | 8-bit label image: 0 = background, 1…*n* = slice number of the maximum. A leading `Prob_` in the input name is removed (e.g. `Prob_sample.tif` → `Decoded_sample.tif`). |
+
+---
+
+## Count Decoded Pixels per Region...
+
+Counts, for each selected region, how many pixels carry each FluoCode label.
+
+### Usage
+
+1. Open the region segmentation image and the decoded FluoCode label image (e.g. `FinalLabel_<name>.tif` or `Decoded_<name>.tif`). Both must have the same size and number of slices. Multi-slice stacks are supported; counts are summed over all slices.
+2. Run the command (an image must be open).
+3. In the dialog:
+    - **Select Segmentation Result:** the region segmentation image.
+    - **Select Raw Image:** the decoded FluoCode label image.
+    - **Create FluoCode map with region outlines:** also display the label image with region boundaries drawn on it (see below).
+4. Select one or more regions from the list (Ctrl/Shift-click for multiple).
+
+Each slice is read only once, regardless of how many regions are selected.
+
+### Results table
+
+| Column | Content |
+|---|---|
+| Region | Region name |
+| Pixel Counts | Total number of pixels in the region |
+| Value 1 … Value 21 Pixel Count | Number of pixels in the region with each FluoCode label (1–21) |
+
+Labels outside 1–21 (background, saturated) are not counted per value, but are included in the region total. The current version counts labels 1–21, which corresponds to 7-channel data (21 channel pairs).
+
+### Region outlines
+
+When **Create FluoCode map with region outlines** is checked, a copy of the label image is displayed with the boundaries of all regions drawn in gray (RGB 100, 100, 100).
+
+- Boundaries are detected slice by slice with Find Edges (Sobel) on the segmentation image; every pixel with an edge value of 1 or more is treated as a boundary. Lines are about 2 pixels wide.
+- Boundary pixels are set to **250**. Value 255 is not used because it marks saturated pixels in FinalLabel.
+- The label image's LUT is kept, with only entry 250 changed to gray.
+- The label image must be 8-bit.
+
+### Region list (`value_name_.csv`)
+
+Region names are read from `value_name_.csv`, embedded at the root of the JAR. Each line is `pixel value,region name`:
+
+
+- The number is the pixel value of the region in the segmentation image (0–65535).
+- Save as UTF-8 **without BOM**, and **without a header line**. A non-numeric line stops reading at that point.
+- Lines whose region name contains a comma are ignored.
+- Region names must be unique.
+- To change the list, edit the CSV and rebuild the JAR.
+
+---
+
+## Building from source
+
+Requires Maven and Java 8 or later.
+
+```
+mvn clean package
+```
+
+The JAR is written to `target/FluoCode_Reader-1.0.0.jar`.
+
+```
+src/main/java/
+├── FluoCode_Reader.java          FluoCode Reader...
+├── FluoCode_Identifier.java      Decode FluoCodes from Probability Map...
+└── FluoCode_Region_Counter.java  Count Decoded Pixels per Region...
+src/main/resources/
+├── plugins.config                menu entries
+└── value_name_.csv               region list
+```
+
+Menu entries are defined in `plugins.config`:
+
+```
+Plugins>FluoCode Reader, "FluoCode Reader...", FluoCode_Reader
+Plugins>FluoCode Reader, "-"
+Plugins>FluoCode Reader, "Decode FluoCodes from Probability Map...", FluoCode_Identifier
+Plugins>FluoCode Reader, "Count Decoded Pixels per Region...", FluoCode_Region_Counter
+```
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Citation
+
+If you use this software, please cite the associated publication. Citation details will be added upon publication.
