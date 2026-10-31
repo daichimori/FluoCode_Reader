@@ -13,8 +13,11 @@ After installation, the tools appear under **Plugins › FluoCode Reader**:
 | **FluoCode Reader...** | Main tool. Generates FluoCode probability maps from unmixed multichannel images, and optionally decodes them into a label image. |
 | **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a FluoCode label image, without re-running the classifiers. |
 | **Count Decoded Pixels per Region...** | Counts decoded FluoCode pixels within each region of a segmentation image. |
+| **Draw Region Boundaries on Decoded FluoCodes...** | Displays a decoded FluoCode label image with the region boundaries of a segmentation image drawn on it. |
 
 Typical workflow: **FluoCode Reader** → (optionally) **Decode FluoCodes from Probability Map** → **Count Decoded Pixels per Region**.
+
+**Draw Region Boundaries on Decoded FluoCodes** is an independent display tool; it can be run on a decoded label image at any point and is not part of the counting workflow.
 
 ## Requirements
 
@@ -38,8 +41,8 @@ Typical workflow: **FluoCode Reader** → (optionally) **Decode FluoCodes from P
 A drop-down list lets you choose one of the following:
 
 - **An open image** — every image currently open in Fiji is listed. The image is processed as displayed and is not closed afterwards.
-- **Image file...** — a single image file.
-- **Folder...** — every file in the folder that Fiji can open is processed.
+- **Select Image File...** — a single image file.
+- **Select Folder...** — every file in the folder that Fiji can open is processed.
 
 Each image should be an **unmixed multichannel image**. Only the first z-slice and time point are used.
 
@@ -67,8 +70,6 @@ Each image should be an **unmixed multichannel image**. Only the first z-slice a
 | Saturated Value (0–65535) | Pixels where any raw channel reaches this value are labeled 255 in FinalLabel. Intended for 16-bit raw images. |
 | Use Unmixing Groups / Group 1–3 | Each field defines one group of channels, e.g. `1,2,3` or `4-6`. Before single-channel classification, each channel in a group has the brightest other channel of the same group × Unmix Strength subtracted. Pair signals are not affected. |
 | Unmix Strength (0–1) | Subtraction factor for unmixing groups. |
-| Special Classifier File (optional) | Alternative classifier for single-channel classification of high-background channels. |
-| Channels using special classifier | Channels (1-based, comma-separated, e.g. `3,5`) that use the special classifier. |
 
 At least one output must be selected.
 
@@ -136,7 +137,6 @@ Counts, for each selected region, how many pixels carry each FluoCode label.
 3. In the dialog:
     - **Select Segmentation Result:** the region segmentation image.
     - **Select Raw Image:** the decoded FluoCode label image.
-    - **Create FluoCode map with region outlines:** also display the label image with region boundaries drawn on it (see below).
 4. Select one or more regions from the list (Ctrl/Shift-click for multiple).
 
 Each slice is read only once, regardless of how many regions are selected.
@@ -151,15 +151,6 @@ Each slice is read only once, regardless of how many regions are selected.
 
 Labels outside 1–21 (background, saturated) are not counted per value, but are included in the region total. The current version counts labels 1–21, which corresponds to 7-channel data (21 channel pairs).
 
-### Region outlines
-
-When **Create FluoCode map with region outlines** is checked, a copy of the label image is displayed with the boundaries of all regions drawn in gray (RGB 100, 100, 100).
-
-- Boundaries are detected slice by slice with Find Edges (Sobel) on the segmentation image; every pixel with an edge value of 1 or more is treated as a boundary. Lines are about 2 pixels wide.
-- Boundary pixels are set to **250**. Value 255 is not used because it marks saturated pixels in FinalLabel.
-- The label image's LUT is kept, with only entry 250 changed to gray.
-- The label image must be 8-bit.
-
 ### Region list (`value_name_.csv`)
 
 Region names are read from `value_name_.csv`, embedded at the root of the JAR. Each line is `pixel value,region name`:
@@ -170,6 +161,30 @@ Region names are read from `value_name_.csv`, embedded at the root of the JAR. E
 - Lines whose region name contains a comma are ignored.
 - Region names must be unique.
 - To change the list, edit the CSV and rebuild the JAR.
+
+---
+
+## Draw Region Boundaries on Decoded FluoCodes...
+
+Displays a copy of a decoded FluoCode label image with the boundaries of all regions of a segmentation image drawn on it, for figures and visual inspection. Display only: neither input image is modified and nothing is saved.
+
+### Usage
+
+1. Open the region segmentation image and the decoded FluoCode label image (e.g. `FinalLabel_<name>.tif` or `Decoded_<name>.tif`). Both must have the same size and number of slices.
+2. Run the command.
+3. In the dialog:
+    - **Allen Atlas:** the region segmentation image.
+    - **Decoded FluoCodes:** the decoded FluoCode label image (must be 8-bit).
+    - **Thicken boundaries by 1 px:** grows the boundary lines by one pixel in every direction (8-connected).
+
+The result is shown as a new stack named `Boundaries_<title>`.
+
+### How boundaries are drawn
+
+- Boundaries are detected slice by slice with Find Edges (Sobel) on the segmentation image; every pixel with an edge value of 1 or more is treated as a boundary. Lines are about 2 pixels wide, or about 4 with **Thicken boundaries by 1 px**.
+- Boundary pixels are set to **250**. Value 255 is not used because it marks saturated pixels in FinalLabel.
+- Pixels outside the atlas (segmentation value 0) are set to **251** and shown black, so that they stay distinguishable from saturated pixels.
+- The label image's LUT is kept, with only entries 250 (gray, RGB 100, 100, 100) and 251 (black) changed.
 
 ---
 
@@ -187,7 +202,8 @@ The JAR is written to `target/FluoCode_Reader-1.0.0.jar`.
 src/main/java/
 ├── FluoCode_Reader.java          FluoCode Reader...
 ├── FluoCode_Identifier.java      Decode FluoCodes from Probability Map...
-└── FluoCode_Region_Counter.java  Count Decoded Pixels per Region...
+├── FluoCode_Region_Counter.java  Count Decoded Pixels per Region...
+└── FluoCode_Region_Outliner.java Draw Region Boundaries on Decoded FluoCodes...
 src/main/resources/
 ├── plugins.config                menu entries
 └── value_name_.csv               region list
@@ -200,6 +216,7 @@ Plugins>FluoCode Reader, "FluoCode Reader...", FluoCode_Reader
 Plugins>FluoCode Reader, "-"
 Plugins>FluoCode Reader, "Decode FluoCodes from Probability Map...", FluoCode_Identifier
 Plugins>FluoCode Reader, "Count Decoded Pixels per Region...", FluoCode_Region_Counter
+Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoCode_Region_Outliner
 ```
 
 ## License

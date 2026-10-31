@@ -15,9 +15,7 @@ import javax.swing.*;
 public class FluoCode_Region_Counter implements PlugInFilter {
     private ImagePlus imp;
 
-    private static final int N_CODES = 21;        // FluoCode values counted (1–21)
-    private static final int OUTLINE_VALUE = 250; // Outline value (255 is avoided: it marks saturated pixels in FinalLabel)
-    private static final int OUTLINE_GRAY = 100;  // Outline color RGB(100,100,100)
+    private static int nCodes = 21;               // Number of FluoCodes counted (1..nCodes); remembered within a session
 
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -30,20 +28,27 @@ public class FluoCode_Region_Counter implements PlugInFilter {
         Map<Integer, String> valueMap = readValuesFromCSV(csvFilePath);
         if (valueMap.isEmpty()) return;
 
-        // Image selection and outline option
+        // Image selection
         GenericDialog gd = new GenericDialog("Select Images");
         String[] imageTitles = WindowManager.getImageTitles();
-        // Region segmentation image
-        gd.addChoice("Select Segmentation Result:", imageTitles, imageTitles[0]);
+        // Allen Atlas region label image
+        gd.addChoice("Allen Atlas:", imageTitles, imageTitles[0]);
         // Decoded FluoCode label image
-        gd.addChoice("Select Raw Image:", imageTitles, imageTitles[0]);
-        gd.addCheckbox("Create FluoCode map with region outlines", false);
+        gd.addChoice("Decoded FluoCodes:", imageTitles, imageTitles[0]);
+        // Number of FluoCode labels to count (e.g., 21 for 7 channels = 21 channel pairs)
+        gd.addNumericField("Number of FluoCodes", nCodes, 0);
 
         gd.showDialog();
         if (gd.wasCanceled()) return;
         ImagePlus segmentationResultImage = WindowManager.getImage(gd.getNextChoice());
         ImagePlus rawImage = WindowManager.getImage(gd.getNextChoice());
-        boolean createOutlines = gd.getNextBoolean();
+        double nCodesInput = gd.getNextNumber();
+
+        if (Double.isNaN(nCodesInput) || nCodesInput < 1 || nCodesInput > 254) {
+            IJ.error("Number of FluoCodes", "Number of FluoCodes must be between 1 and 254.");
+            return;
+        }
+        nCodes = (int) Math.round(nCodesInput);
 
         // Check size and slice count of the two selected images (not the active image)
         int w = rawImage.getWidth();
@@ -53,12 +58,7 @@ public class FluoCode_Region_Counter implements PlugInFilter {
                 || segmentationResultImage.getHeight() != h
                 || segmentationResultImage.getStackSize() != nSlices) {
             IJ.error("Image size mismatch",
-                    "Segmentation Result and Raw Image must have the same size and number of slices.");
-            return;
-        }
-        if (createOutlines && rawImage.getBitDepth() != 8) {
-            IJ.error("Region outlines",
-                    "Region outlines require an 8-bit Raw Image (FluoCode label image).");
+                    "Allen Atlas and Decoded FluoCodes must have the same size and number of slices.");
             return;
         }
 
@@ -90,11 +90,12 @@ public class FluoCode_Region_Counter implements PlugInFilter {
         }
 
         long[] totalCounts = new long[nRegions];          // total pixels per region
-        long[][] pixelCounts = new long[nRegions][N_CODES]; // pixels per region and per FluoCode value 1–21
+        long[][] pixelCounts = new long[nRegions][nCodes];  // pixels per region and per FluoCode value 1..nCodes
+        long nAboveRange = 0;                               // pixels with labels above nCodes (255 excluded)
+        int maxLabelFound = 0;
 
         ImageStack segStack = segmentationResultImage.getStack();
         ImageStack rawStack = rawImage.getStack();
-        ImageStack outlineStack = createOutlines ? new ImageStack(w, h) : null;
 
         // Read each slice once and count all selected regions in one pass
         for (int slice = 1; slice <= nSlices; slice++) {
@@ -109,25 +110,13 @@ public class FluoCode_Region_Counter implements PlugInFilter {
                     if (r < 0) continue; // region not selected
                     totalCounts[r]++;
                     int rawValue = (int) rawProcessor.getPixelValue(x, y);
-                    if (rawValue >= 1 && rawValue <= N_CODES) {
+                    if (rawValue >= 1 && rawValue <= nCodes) {
                         pixelCounts[r][rawValue - 1]++;
+                    } else if (rawValue > nCodes && rawValue != 255) {
+                        nAboveRange++;
+                        if (rawValue > maxLabelFound) maxLabelFound = rawValue;
                     }
                 }
-            }
-
-            // Outlines: Find Edges (Sobel) on the segmentation image; pixels >= 1 are written into a copy of the Raw Image
-            if (createOutlines) {
-                ImageProcessor edges = segmentationResultProcessor.duplicate(); // copy so the original stack is not modified
-                edges.findEdges();
-                ImageProcessor outlineProcessor = rawProcessor.duplicate();
-                for (int y = 0; y < h; y++) {
-                    for (int x = 0; x < w; x++) {
-                        if (edges.getPixelValue(x, y) >= 1) {
-                            outlineProcessor.set(x, y, OUTLINE_VALUE);
-                        }
-                    }
-                }
-                outlineStack.addSlice(rawStack.getSliceLabel(slice), outlineProcessor);
             }
         }
 
@@ -138,33 +127,19 @@ public class FluoCode_Region_Counter implements PlugInFilter {
             rt.addValue("Region", regionNames.get(r));
             rt.addValue("Pixel Counts", totalCounts[r]);
 
-            // Pixel count for each FluoCode value 1–21
-            for (int i = 0; i < N_CODES; i++) {
+            // Pixel count for each FluoCode value 1..nCodes
+            for (int i = 0; i < nCodes; i++) {
                 rt.addValue("Value " + (i + 1) + " Pixel Count", pixelCounts[r][i]);
             }
         }
         rt.show("Results");
 
-        // Show the image with region outlines
-        if (createOutlines) {
-            ImagePlus out = new ImagePlus("Outlines_" + rawImage.getTitle(), outlineStack);
-            out.setLut(makeOutlineLUT(rawImage.getProcessor().getLut()));
-            out.show();
+        // Warn if labels above the specified number were found
+        if (nAboveRange > 0) {
+            IJ.log("[WARN] " + nAboveRange + " pixel(s) in the selected regions have labels above "
+                    + nCodes + " (highest: " + maxLabelFound + ") and were not counted per value. "
+                    + "Check \"Number of FluoCodes\".");
         }
-    }
-
-    /** Keeps the Raw Image LUT and sets only the outline value to gray */
-    private LUT makeOutlineLUT(LUT base) {
-        byte[] r = new byte[256];
-        byte[] g = new byte[256];
-        byte[] b = new byte[256];
-        base.getReds(r);
-        base.getGreens(g);
-        base.getBlues(b);
-        r[OUTLINE_VALUE] = (byte) OUTLINE_GRAY;
-        g[OUTLINE_VALUE] = (byte) OUTLINE_GRAY;
-        b[OUTLINE_VALUE] = (byte) OUTLINE_GRAY;
-        return new LUT(r, g, b);
     }
 
     private Map<Integer, String> readValuesFromCSV(String filePath) {

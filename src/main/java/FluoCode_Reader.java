@@ -18,7 +18,6 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashSet;
 
 public class FluoCode_Reader implements PlugIn {
 
@@ -38,9 +37,6 @@ public class FluoCode_Reader implements PlugIn {
     private static double unmixStrength = 0.2; // 0〜1, UI  (unmix group only)
     private static double saturatedValue = 65535; // 0–65535,
     private static boolean useUnmixGroups = false;
-
-    private String specialClassifier = "";
-    private HashSet<Integer> specialSet = new HashSet<>();
 
     //Log output in the first loop
     private StringBuilder runLog = new StringBuilder();
@@ -99,10 +95,6 @@ public class FluoCode_Reader implements PlugIn {
         gd.addStringField("Group 3", "");
         gd.addNumericField("Unmix Strength (0–1)", unmixStrength, 2);
 
-        gd.addMessage("---- Special Classifier For High-BG Channels ----");
-        gd.addFileField("Special Classifier File (optional)", "");
-        gd.addStringField("Channels using special classifier (e.g., 3,5)", "");
-
         gd.showDialog();
         if (gd.wasCanceled())
             return;
@@ -122,17 +114,6 @@ public class FluoCode_Reader implements PlugIn {
         String g2 = gd.getNextString();
         String g3 = gd.getNextString();
         unmixStrength = Math.max(0.0, Math.min(1.0, gd.getNextNumber()));
-
-        specialClassifier = gd.getNextString();
-        String specialChannels = gd.getNextString();
-        specialSet = parseChannelList(specialChannels);
-
-        if (specialClassifier != null && !specialClassifier.isEmpty()) {
-            logRun(" Special Classifier     : " + specialClassifier);
-            logRun(" Special Channels       : " + specialChannels);
-        } else {
-            logRun(" Special Classifier     : None");
-        }
 
         if (useUnmixGroups) {
             unmixGroups.clear();
@@ -276,8 +257,8 @@ public class FluoCode_Reader implements PlugIn {
     }
 
     /** Input selection: an open image, an image file, or a folder */
-    private static final String CHOICE_FILE = "Image file...";
-    private static final String CHOICE_FOLDER = "Folder...";
+    private static final String CHOICE_FILE = "Select Image File...";
+    private static final String CHOICE_FOLDER = "Select Folder...";
 
     private String chooseImageOrFolder() {
         openInput = null;
@@ -401,25 +382,17 @@ public class FluoCode_Reader implements PlugIn {
 
             slice.show();
 
-            /* ======== SPECIAL CLASSIFIER SWITCH ======== */
-
-            String localClassifier = classifierPath; // default
-            if (specialClassifier != null && !specialClassifier.isEmpty()) {
-                if (specialSet.contains(c + 1)) { // since c=0→Ch1,  +1
-                    localClassifier = specialClassifier;
-                }
-            }
             IJ.log("Processing Channel " + (c + 1) + " (slice_c" + (c + 1)
-                    + ") using classifier: " + localClassifier);
+                    + ") using classifier: " + classifierPath);
 
-            if (localClassifier.endsWith(".ilp")) {
+            if (classifierPath.endsWith(".ilp")) {
                 IJ.run("Run Pixel Classification Prediction",
-                        "projectfilename=[" + localClassifier + "] "
+                        "projectfilename=[" + classifierPath + "] "
                                 + "input=[slice_c" + (c + 1) + "] "
                                 + "pixelclassificationtype=[Probabilities]");
             } else {
                 IJ.run("Calculate Probability Map With Labkit",
-                        "segmenter_file=[" + localClassifier + "] use_gpu=true");
+                        "segmenter_file=[" + classifierPath + "] use_gpu=true");
             }
 
             ImagePlus out = WindowManager.getCurrentImage();
@@ -566,24 +539,6 @@ public class FluoCode_Reader implements PlugIn {
     }
 
     /* ---------- helpers ---------- */
-
-    private HashSet<Integer> parseChannelList(String s) {
-        HashSet<Integer> set = new HashSet<>();
-        if (s == null)
-            return set;
-        for (String t : s.split(",")) {
-            t = t.trim();
-            if (t.isEmpty())
-                continue;
-            try {
-                int ch = Integer.parseInt(t);
-                if (ch > 0)
-                    set.add(ch);
-            } catch (Exception ignored) {
-            }
-        }
-        return set;
-    }
 
     private void checkAndReplaceIfUniform(ByteProcessor bp) {
         byte[] d = (byte[]) bp.getPixels();

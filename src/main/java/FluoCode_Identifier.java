@@ -31,8 +31,8 @@ public class FluoCode_Identifier implements PlugIn {
     private static final String VERSION = "1.1.1";
     private static double minThresh = 0.2;   // 0–1
 
-    private static final String CHOICE_FILE = "Image file...";
-    private static final String CHOICE_FOLDER = "Folder...";
+    private static final String CHOICE_FILE = "Select Image File...";
+    private static final String CHOICE_FOLDER = "Select Folder...";
 
     // In folder mode, only probability maps saved by FluoCode Reader are processed
     private static final String PROB_PREFIX = "Prob_";
