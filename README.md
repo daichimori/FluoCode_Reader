@@ -27,7 +27,7 @@ The other two commands sit beside this workflow rather than inside it:
 - Fiji (or ImageJ 1.x), Java 8 or later
 - A pixel classifier, which FluoCode Reader calls to turn images into probability maps. The plugin does not train a classifier itself: you train one beforehand and pass the resulting file to it as the **Classifier File**. Install one of the following, depending on which kind of classifier file you use.
 
-### ilastik — for `.ilp` project files
+### ilastik — for `.ilp` project files (recommended)
 
 - **The ilastik application is required**, not only its Fiji plugin. You do the labeling there, and that labeling is what produces the `.ilp` project file for FluoCode Reader.
 - **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed — on Windows, for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, and set to the real installation, prediction fails and FluoCode Reader cannot produce probability maps. Set it once per Fiji installation, and again whenever ilastik is moved, reinstalled or updated.
@@ -45,28 +45,6 @@ The other two commands sit beside this workflow rather than inside it:
 
 ---
 
-
-## Atlas files
-
-**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this.
-
-**1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
-
-A region segmentation image derived from the annotation volume of the Allen Mouse Brain Common Coordinate Framework version 3 (CCFv3; Wang et al., 2020). Each pixel value identifies one brain region. Values are stored as 16-bit integers (0–65535), and 0 denotes pixels outside the atlas.
-
-Before use with the FluoCode Reader plugin, it must be registered to the sample image, for example by warping it with BigWarp in Fiji. Use **nearest-neighbor interpolation** during warping, so that pixel values remain valid region labels and are not blended into values that belong to other regions. After registration, it must have the same width, height and number of slices as the decoded FluoCode image (`Decoded_<name>.tif`) it is paired with.
-
-**2. `value_name_.csv` — region list**
-
-A two-column list mapping pixel values in `annotationAtlas.tif` to region names. Each line is in the form `pixel value,region name`. Region names are unique and contain no commas. This file is identical to the `value_name_.csv` embedded at the root of `FluoCode_Reader-1.0.0.jar`, which is the list the plugin actually reads; it is provided here so that the region definitions can be inspected without unpacking the JAR.
-
-To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas — a line whose name contains a comma is ignored, and a non-numeric line stops reading at that point.
-
-### Which image to register the atlas to
-
-Register the atlas to the **ordinary fluorescence image, as it was before FluoCode Reader ran** — not to `Decoded_<name>.tif`. A decoded FluoCode image holds nothing but label values, so the anatomical structures that landmarks are placed on are no longer visible in it and the alignment is hard to judge. The fluorescence image still shows them, and because it has the same width, height and slice count as the decoded image produced from it, the warped atlas obtained this way can be used with the decoded image directly.
-
----
 
 ## FluoCode Reader...
 
@@ -180,6 +158,29 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 | File | Content |
 |---|---|
 | `Decoded_<name>.tif` | Decoded FluoCode image, in the same format as the one from FluoCode Reader. |
+
+---
+
+
+## Atlas files
+
+**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this.
+
+**1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
+
+A region segmentation image derived from the annotation volume of the Allen Mouse Brain Common Coordinate Framework version 3 (CCFv3; Wang et al., 2020). Each pixel value identifies one brain region. Values are stored as 16-bit integers (0–65535), and 0 denotes pixels outside the atlas.
+
+Before use with the FluoCode Reader plugin, it must be registered to the sample image, for example by warping it with BigWarp in Fiji. Use **nearest-neighbor interpolation** during warping, so that pixel values remain valid region labels and are not blended into values that belong to other regions. After registration, it must have the same width, height and number of slices as the decoded FluoCode image (`Decoded_<name>.tif`) it is paired with.
+
+**2. `value_name_.csv` — region list**
+
+A two-column list mapping pixel values in `annotationAtlas.tif` to region names. Each line is in the form `pixel value,region name`. Region names are unique and contain no commas. This file is identical to the `value_name_.csv` embedded at the root of `FluoCode_Reader-1.0.0.jar`, which is the list the plugin actually reads; it is provided here so that the region definitions can be inspected without unpacking the JAR.
+
+To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas — a line whose name contains a comma is ignored, and a non-numeric line stops reading at that point.
+
+### Which image to register the atlas to
+
+Register the atlas to the **ordinary fluorescence image, as it was before FluoCode Reader ran** — not to `Decoded_<name>.tif`. A decoded FluoCode image holds nothing but label values, so the anatomical structures that landmarks are placed on are no longer visible in it and the alignment is hard to judge. The fluorescence image still shows them, and because it has the same width, height and slice count as the decoded image produced from it, the warped atlas obtained this way can be used with the decoded image directly.
 
 ---
 
