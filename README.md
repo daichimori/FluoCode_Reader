@@ -145,7 +145,8 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 ### Notes
 
 - Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an image holds only one class — in practice when it is all background, with no signal anywhere — ilastik does not report it as background. It returns a probability of 0.5 for both classes at every pixel, so the signal-class map, which is the one the plugin reads, comes back uniformly 0.5 (128 in 8-bit) instead of 0. A flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
-- Saturated pixels cannot be identified from a probability map, so label 255 is not used.
+- Saturated pixels cannot be identified only from a probability map, so label 255 is not used in "Decode FluoCodes from Probability Map...".
+
 
 ### Output files
 
