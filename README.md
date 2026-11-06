@@ -19,8 +19,8 @@ Typical workflow: **FluoCode Reader** → **Count Decoded Pixels per Region**.
 
 The other two commands sit beside this workflow rather than inside it:
 
-- **Decode FluoCodes from Probability Map** saves time when the result of FluoCode Reader is not quite right. It re-decodes an already saved probability map at a different decoding threshold, or with some FluoCodes left out, so that trying another threshold does not mean running the classifiers again from the start.
-- **Draw Region Boundaries on Decoded FluoCodes** is there for display. It shows where the region boundaries fall on a decoded FluoCode image, for figures and for judging the atlas registration by eye. It can be run on a decoded FluoCode image at any time; counting is not the only way to look at the data.
+- **Decode FluoCodes from Probability Map** It re-decodes an already saved probability map at a different decoding threshold, or with some FluoCodes left out, so that trying another threshold does not mean running the classifiers again from the start.
+- **Draw Region Boundaries on Decoded FluoCodes** It shows where the region boundaries fall on a decoded FluoCode image, for figures and for judging the atlas registration by eye. It can be run on a decoded FluoCode image at any time; counting is not the only way to look at the data.
 
 ## Requirements
 
@@ -29,9 +29,9 @@ The other two commands sit beside this workflow rather than inside it:
 
 ### ilastik — for `.ilp` project files
 
-- **The ilastik application itself is required**, not only its Fiji plugin. The classifier is trained in ilastik: you do the labeling there, and that labeling is what produces the `.ilp` project file FluoCode Reader reads.
-- **The ilastik Fiji plugin is required as well** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed — on Windows, for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. The same dialog also sets how many threads and how much RAM ilastik may use, which is worth checking for large images. Until this path is set, and set to the real installation, prediction fails and FluoCode Reader cannot produce probability maps. Set it once per Fiji installation, and again whenever ilastik is moved, reinstalled or updated.
-- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that ilastik itself has open.
+- **The ilastik application is required**, not only its Fiji plugin. You do the labeling there, and that labeling is what produces the `.ilp` project file for FluoCode Reader.
+- **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed — on Windows, for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, and set to the real installation, prediction fails and FluoCode Reader cannot produce probability maps. Set it once per Fiji installation, and again whenever ilastik is moved, reinstalled or updated.
+- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that ilastik application has open.
 
 ### Labkit — for Labkit classifier files
 
@@ -45,21 +45,6 @@ The other two commands sit beside this workflow rather than inside it:
 
 ---
 
-## Example data and atlas files
-
-Example data for trying the plugin, and the atlas files used for region counting, are deposited on Zenodo.
-
-- **Zenodo record:** _URL to be added_
-- **DOI:** _to be added_
-
-### Example data
-
-| File | Content |
-|---|---|
-| Example image | An unmixed multichannel image, so that FluoCode Reader can be tried without preparing data first. |
-| Example classifier (`.ilp`) | The ilastik project trained for that image. Pass it to FluoCode Reader as the **Classifier File** to reproduce the example output. |
-
-_Download: URL to be added_
 
 ### Atlas files
 
@@ -134,11 +119,11 @@ In particular, step 1 never changes *I*<sub>ab</sub>: hue extraction always star
 | Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted before hue extraction. Channel C must differ from A and B. This is the correction described in Figure S5 of the paper; it is not linear unmixing. |
 | Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). |
-| Save decoded FluoCode image | Saves the decoded FluoCode image (see below). |
-| Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. |
+| Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
+| Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended|
 | Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 instead of a FluoCode. A saturated channel no longer reports its true intensity, so the balance between channels — which is what a FluoCode is — cannot be recovered for such a pixel. Label 255 is therefore an exception to classification: these pixels are set aside instead of being given a FluoCode that may be wrong, and **Count Decoded Pixels per Region** does not count them under any FluoCode label. Intended for 16-bit raw images. |
-| Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1,2,3` or `4-6`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. See step 1 above; *I*<sub>ab</sub> is not affected. |
-| Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. |
+| Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. |
+| Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended|
 
 At least one output must be selected.
 
@@ -176,15 +161,14 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 | Option | Description |
 |---|---|
 | Save directory | Output folder (required). |
-| Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. |
+| Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. The default value (0.2) is recommended|
 | Slices to exclude (optional) | Slices (1-based, comma-separated, e.g. `3,5`) to ignore during decoding, so that the FluoCodes they carry are left out of the result. Leave it empty — the default — to use every slice. Numbers that do not exist in the image are reported in the Log. |
 | LUT file (optional) | LUT applied to the output. If empty, the same label palette as FluoCode Reader is used. |
 
 ### Notes
 
-- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an input gives it nothing to separate — no signal anywhere, so that every class is equally likely — it returns a probability of 0.5 (128 in 8-bit) at every pixel instead of an empty map. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
+- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an input has only one class, so that every class is equally likely — it returns a probability of 0.5 (128 in 8-bit) at every pixel instead of an empty map. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
 - Saturated pixels cannot be identified from a probability map, so label 255 is not used.
-- Stacks with more than 254 slices are not supported.
 
 ### Output files
 
@@ -196,7 +180,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Count Decoded Pixels per Region...
 
-Counts, for each selected region, how many pixels carry each FluoCode label.
+Counts how many pixels carry each FluoCode label for each region.
 
 ### Usage
 
@@ -207,7 +191,6 @@ Counts, for each selected region, how many pixels carry each FluoCode label.
     - **Decoded FluoCodes:** the decoded FluoCode image.
 4. Select one or more regions from the list (Ctrl/Shift-click for multiple).
 
-Each slice is read only once, regardless of how many regions are selected.
 
 ### Results table
 
@@ -221,7 +204,7 @@ Labels outside 1–21 (background, saturated) are not counted per value, but are
 
 ### Region names
 
-The region names offered in the dialog and written to the Results table come from the region list inside the JAR, which also fixes which pixel value of the segmentation image belongs to which region. Only regions on that list can be counted. The same list is distributed with the atlas files as `value_name_.csv`; see [Example data and atlas files](#example-data-and-atlas-files) to inspect it or to use a list of your own.
+The region names offered in the dialog and written to the Results table come from the region list inside the JAR, which also fixes which pixel value of the segmentation image belongs to which region. Only regions on that list can be counted. The same list is distributed with the atlas files as `value_name_.csv`; see [zenodo_URL] to inspect it or to use a list of your own.
 
 ---
 
@@ -278,12 +261,19 @@ Plugins>FluoCode Reader, "-"
 Plugins>FluoCode Reader, "Decode FluoCodes from Probability Map...", FluoCode_Identifier
 Plugins>FluoCode Reader, "Count Decoded Pixels per Region...", FluoCode_Region_Counter
 Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoCode_Region_Outliner
+
+## Example data
+
+Example data for trying the plugin is to be deposited on Zenodo.
+
+
+### Example data
+
+| File | Content |
+|---|---|
+| Example image | An unmixed multichannel image, so that FluoCode Reader can be tried without preparing data first. |
+| Example classifier (`.ilp`) | The ilastik project trained for that image. Pass it to FluoCode Reader as the **Classifier File** to reproduce the example output. |
 ```
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
 ## Citation
 
 If you use this software, please cite the associated publication. Citation details will be added upon publication.
