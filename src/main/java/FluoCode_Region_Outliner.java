@@ -8,13 +8,13 @@ import ij.process.ImageProcessor;
 import ij.process.LUT;
 
 /**
- * Displays a decoded FluoCode label image with the boundaries of every region of a
+ * Displays a decoded FluoCode image with the boundaries of every region of a
  * segmentation image (e.g. the Allen Atlas) drawn on top. Display only: neither input
  * image is modified.
  */
 public class FluoCode_Region_Outliner implements PlugIn {
 
-    private static final int OUTLINE_VALUE = 250; // Outline value (255 is avoided: it marks saturated pixels in FinalLabel)
+    private static final int OUTLINE_VALUE = 250; // Outline value (255 is avoided: it marks saturated pixels in decoded FluoCode images)
     private static final int OUTLINE_GRAY = 100;  // Outline color RGB(100,100,100)
     private static final int OUTSIDE_VALUE = 251; // Outside the atlas (atlas value 0); shown black, separate from saturation (255)
 
@@ -31,7 +31,7 @@ public class FluoCode_Region_Outliner implements PlugIn {
         GenericDialog gd = new GenericDialog("Draw Region Boundaries");
         // Allen Atlas region label image
         gd.addChoice("Allen Atlas:", imageTitles, imageTitles[0]);
-        // Decoded FluoCode label image
+        // Decoded FluoCode image
         gd.addChoice("Decoded FluoCodes:", imageTitles, imageTitles[0]);
         gd.addCheckbox("Thicken boundaries by 1 px", thickenOutlines);
 

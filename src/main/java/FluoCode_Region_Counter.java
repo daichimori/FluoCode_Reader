@@ -33,7 +33,7 @@ public class FluoCode_Region_Counter implements PlugInFilter {
         String[] imageTitles = WindowManager.getImageTitles();
         // Allen Atlas region label image
         gd.addChoice("Allen Atlas:", imageTitles, imageTitles[0]);
-        // Decoded FluoCode label image
+        // Decoded FluoCode image
         gd.addChoice("Decoded FluoCodes:", imageTitles, imageTitles[0]);
         // Number of FluoCode labels to count (e.g., 21 for 7 channels = 21 channel pairs)
         gd.addNumericField("Number of FluoCodes", nCodes, 0);

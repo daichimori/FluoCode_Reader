@@ -23,20 +23,20 @@ public class FluoCode_Reader implements PlugIn {
 
     /* ---------- output flags (defaults) ---------- */
     private static boolean saveProbMap = true; // default ON
-    private static boolean saveMinDiffStack = false; // default OFF
-    private static boolean saveFinalLabel = true; // default OFF
+    private static boolean saveHueExtracted = false; // default OFF
+    private static boolean saveDecoded = true; // default ON
 
-    private ArrayList<int[]> channelPairs = new ArrayList<>();
-    private ArrayList<Double> leakageLevels = new ArrayList<>();
-    private ArrayList<int[]> unmixGroups = new ArrayList<>();
-    private ArrayList<String> unmixParseErrors = new ArrayList<>();
+    private ArrayList<int[]> fretRows = new ArrayList<>();
+    private ArrayList<Double> fretLeakage = new ArrayList<>();
+    private ArrayList<int[]> channelGroups = new ArrayList<>();
+    private ArrayList<String> groupParseErrors = new ArrayList<>();
 
     private static final String VERSION = "1.0.0";
-    private static double labelThresh = 0.2; // 0.1–1.0, UI
-    private static double hueStrictness = 0.2; // 0〜1, UI  (pair loop only)
-    private static double unmixStrength = 0.2; // 0〜1, UI  (unmix group only)
+    private static double decodeThresh = 0.2; // 0.1–1.0, UI
+    private static double leakageK = 0.2; // 0–1, UI  (leakage parameter k, pair loop only)
+    private static double unmixLeakage = 0.2; // 0–1, UI  (channel groups only)
     private static double saturatedValue = 65535; // 0–65535,
-    private static boolean useUnmixGroups = false;
+    private static boolean correctUnmixLeakage = false;
 
     //Log output in the first loop
     private StringBuilder runLog = new StringBuilder();
@@ -78,22 +78,22 @@ public class FluoCode_Reader implements PlugIn {
         GenericDialog gd = new GenericDialog("Setup All Options");
         gd.addDirectoryField("Save directory", "");
         gd.addFileField("Classifier File", "");
-        gd.addNumericField("Leak Tolerance (0–1)", hueStrictness, 2);
-        gd.addCheckbox("Additional unmixing for FRET", false);
+        gd.addNumericField("Leakage parameter k (0–1)", leakageK, 2);
+        gd.addCheckbox("Subtract FRET-derived signals", false);
         gd.addMessage("-------- Output Options --------");
-        gd.addCheckbox("Save Probability Map stack", saveProbMap);
-        gd.addCheckbox("Save MinDiff stack", saveMinDiffStack);
-        gd.addCheckbox("Save FinalLabel image", saveFinalLabel);
-        gd.addNumericField("FinalLabel threshold (0.1–1)", labelThresh, 2);
+        gd.addCheckbox("Save corrected probability map (P_ab*)", saveProbMap);
+        gd.addCheckbox("Save hue-extracted images (I_ab)", saveHueExtracted);
+        gd.addCheckbox("Save decoded FluoCode image", saveDecoded);
+        gd.addNumericField("Decoding threshold (0.1–1)", decodeThresh, 2);
         gd.addNumericField("Saturated Value (0–65535)", saturatedValue, 0);
 
-        // --- Unmixing groups option ---
-        gd.addCheckbox("Use Unmixing Groups", false);
-        gd.addMessage("Unmixing Groups (e.g., 1,2,3 / 4-6)");
-        gd.addStringField("Group 1", "");
-        gd.addStringField("Group 2", "");
-        gd.addStringField("Group 3", "");
-        gd.addNumericField("Unmix Strength (0–1)", unmixStrength, 2);
+        // --- Residual unmixing leakage option (per single channel) ---
+        gd.addCheckbox("Correct residual unmixing leakage", false);
+        gd.addMessage("Channel groups that leak into each other (e.g., 1,2,3 / 4-6)");
+        gd.addStringField("Channel group 1", "");
+        gd.addStringField("Channel group 2", "");
+        gd.addStringField("Channel group 3", "");
+        gd.addNumericField("Unmixing leakage parameter (0–1)", unmixLeakage, 2);
 
         gd.showDialog();
         if (gd.wasCanceled())
@@ -101,35 +101,35 @@ public class FluoCode_Reader implements PlugIn {
 
         String saveDir = gd.getNextString();
         String classifierPath = gd.getNextString();
-        hueStrictness = Math.max(0.0, Math.min(1.0, gd.getNextNumber()));
-        boolean doUnmix = gd.getNextBoolean();
+        leakageK = Math.max(0.0, Math.min(1.0, gd.getNextNumber()));
+        boolean doFretSubtract = gd.getNextBoolean();
         saveProbMap = gd.getNextBoolean();
-        saveMinDiffStack = gd.getNextBoolean();
-        saveFinalLabel = gd.getNextBoolean();
-        labelThresh = Math.max(0.1, Math.min(1.0, gd.getNextNumber()));
+        saveHueExtracted = gd.getNextBoolean();
+        saveDecoded = gd.getNextBoolean();
+        decodeThresh = Math.max(0.1, Math.min(1.0, gd.getNextNumber()));
         saturatedValue = (int) Math.max(0, Math.min(65535, gd.getNextNumber()));
 
-        useUnmixGroups = gd.getNextBoolean();
+        correctUnmixLeakage = gd.getNextBoolean();
         String g1 = gd.getNextString();
         String g2 = gd.getNextString();
         String g3 = gd.getNextString();
-        unmixStrength = Math.max(0.0, Math.min(1.0, gd.getNextNumber()));
+        unmixLeakage = Math.max(0.0, Math.min(1.0, gd.getNextNumber()));
 
-        if (useUnmixGroups) {
-            unmixGroups.clear();
-            unmixParseErrors.clear();
+        if (correctUnmixLeakage) {
+            channelGroups.clear();
+            groupParseErrors.clear();
 
-            parseGroupString(g1, "Group 1");
-            parseGroupString(g2, "Group 2");
-            parseGroupString(g3, "Group 3");
+            parseGroupString(g1, "Channel group 1");
+            parseGroupString(g2, "Channel group 2");
+            parseGroupString(g3, "Channel group 3");
 
-            if (!unmixParseErrors.isEmpty()) {
+            if (!groupParseErrors.isEmpty()) {
                 StringBuilder sb = new StringBuilder();
-                sb.append("Invalid input in Unmixing Groups:\n\n");
-                for (String err : unmixParseErrors) {
+                sb.append("Invalid input in channel groups:\n\n");
+                for (String err : groupParseErrors) {
                     sb.append(" - ").append(err).append("\n");
                 }
-                IJ.error("Unmixing groups error", sb.toString());
+                IJ.error("Channel group error", sb.toString());
                 return; //
             }
         }
@@ -138,7 +138,7 @@ public class FluoCode_Reader implements PlugIn {
             IJ.error("Save directory and Classifier File are required.");
             return;
         }
-        if (!saveProbMap && !saveMinDiffStack && !saveFinalLabel) {
+        if (!saveProbMap && !saveHueExtracted && !saveDecoded) {
             IJ.error("Select at least one output.");
             return;
         }
@@ -155,39 +155,39 @@ public class FluoCode_Reader implements PlugIn {
 
         logRun(" Save directory         : " + saveDir);
         logRun(" Classifier file        : " + classifierPath);
-        logRun(" Leak Tolerance (pair)  : " + hueStrictness);
-        logRun(" Unmix Strength (group) : " + unmixStrength);
+        logRun(" Leakage parameter k    : " + leakageK);
+        logRun(" Unmixing leakage       : " + unmixLeakage);
 
         // Output: True
         StringBuilder outSb = new StringBuilder();
-        if (saveProbMap || saveMinDiffStack || saveFinalLabel) {
-            outSb.append(" Output                :");
+        if (saveProbMap || saveHueExtracted || saveDecoded) {
+            outSb.append(" Output                 :");
             boolean first = true;
             if (saveProbMap) {
-                outSb.append(first ? " ProbMap" : ", ProbMap");
+                outSb.append(first ? " CorrectedProbMap" : ", CorrectedProbMap");
                 first = false;
             }
-            if (saveMinDiffStack) {
-                outSb.append(first ? " MinDiffStack" : ", MinDiffStack");
+            if (saveHueExtracted) {
+                outSb.append(first ? " HueExtracted" : ", HueExtracted");
                 first = false;
             }
-            if (saveFinalLabel) {
-                outSb.append(first ? " FinalLabel" : ", FinalLabel");
+            if (saveDecoded) {
+                outSb.append(first ? " DecodedFluoCodes" : ", DecodedFluoCodes");
                 first = false;
             }
         } else {
-            outSb.append(" Output                : None");
+            outSb.append(" Output                 : None");
         }
         logRun(outSb.toString());
 
-        logRun(" FinalLabel threshold   : " + labelThresh);
+        logRun(" Decoding threshold     : " + decodeThresh);
         logRun(" Saturated Value (16bit): " + saturatedValue);
 
-        // Unmixing Groups : [Ch1, Ch2]  or None
-        if (useUnmixGroups && !unmixGroups.isEmpty()) {
-            logRun(" Unmixing Groups        :");
-            for (int gi = 0; gi < unmixGroups.size(); gi++) {
-                int[] g = unmixGroups.get(gi);
+        // Channel groups : [Ch1, Ch2]  or None
+        if (correctUnmixLeakage && !channelGroups.isEmpty()) {
+            logRun(" Channel groups         :");
+            for (int gi = 0; gi < channelGroups.size(); gi++) {
+                int[] g = channelGroups.get(gi);
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < g.length; i++) {
                     if (i > 0)
@@ -197,26 +197,27 @@ public class FluoCode_Reader implements PlugIn {
                 logRun("  [" + sb.toString() + "]");
             }
         } else {
-            logRun(" Unmixing Groups        : None");
+            logRun(" Channel groups         : None");
         }
 
-        // --- ③  unmix group setting window（FRET pair） ---
-        if (doUnmix) {
-            setupChannelPairs();
+        // --- ③ Setup window for subtraction of FRET-derived signals ---
+        if (doFretSubtract) {
+            setupFretRows();
         }
 
         // FRET : [...] style or None
-        if (doUnmix && !channelPairs.isEmpty()) {
-            for (int i = 0; i < channelPairs.size(); i++) {
-                int[] pair = channelPairs.get(i);
-                double leak = leakageLevels.get(i);
+        if (doFretSubtract && !fretRows.isEmpty()) {
+            for (int i = 0; i < fretRows.size(); i++) {
+                int[] pair = fretRows.get(i);
+                double leak = fretLeakage.get(i);
                 int a = pair[0] + 1;
                 int b = pair[1] + 1;
                 int c = pair[2] + 1;
-                logRun(" FRET" + (i + 1) + ": [" + a + "," + b + ": to " + c + "] leak =" + leak);
+                logRun(" FRET" + (i + 1) + ": [" + a + "," + b + ": to " + c
+                        + "] leakage parameter = " + leak);
             }
         } else {
-            logRun(" FRET                    : None");
+            logRun(" FRET-derived signals   : None");
         }
 
         // --- ④ processing loop ---
@@ -311,10 +312,10 @@ public class FluoCode_Reader implements PlugIn {
             raw[c] = (float[]) ip.toFloat(0, null).getPixels();
         }
 
-        /* ---------- FRET pair reference, make min(raw[a], raw[b]) ---------- */
-        float[][] fretRef = new float[channelPairs.size()][];
-        for (int idx = 0; idx < channelPairs.size(); idx++) {
-            int[] pr = channelPairs.get(idx);
+        /* ---------- FRET reference image, min(raw[a], raw[b]) ---------- */
+        float[][] fretRef = new float[fretRows.size()][];
+        for (int idx = 0; idx < fretRows.size(); idx++) {
+            int[] pr = fretRows.get(idx);
             if (pr[0] >= chNum || pr[1] >= chNum || pr[2] >= chNum) {
                 IJ.log("  [WARN] FRET" + (idx + 1) + " references a channel beyond "
                         + chNum + " — this row is skipped for " + fileName);
@@ -329,8 +330,8 @@ public class FluoCode_Reader implements PlugIn {
         }
 
         /* --- Output stacks --- */
-        ImageStack probStack = new ImageStack(w, h); // Probability Map (8-bit)
-        ImageStack minDiffStack = new ImageStack(w, h); // MinDiff (16-bit)
+        ImageStack probStack = new ImageStack(w, h); // corrected probability map P_ab* (8-bit)
+        ImageStack hueStack = new ImageStack(w, h); // hue-extracted images I_ab (16-bit)
 
         /* ---------- singleProb per channel ---------- */
         ByteProcessor[] singleProb = new ByteProcessor[chNum];
@@ -341,10 +342,10 @@ public class FluoCode_Reader implements PlugIn {
                     "slice_c" + (c + 1),
                     imp.getStack().getProcessor(imp.getStackIndex(c + 1, 1, 1)).duplicate());
 
-            /* --- Unmixing group subtraction (per single-color image) --- */
-            if (useUnmixGroups) {
+            /* --- Residual unmixing leakage correction (per single-color image) --- */
+            if (correctUnmixLeakage) {
                 int[] targetGroup = null;
-                for (int[] g : unmixGroups) {
+                for (int[] g : channelGroups) {
                     for (int cc : g) {
                         if (cc == c) {
                             targetGroup = g;
@@ -367,11 +368,11 @@ public class FluoCode_Reader implements PlugIn {
                         }
                     }
 
-                    float us = (float) unmixStrength;
+                    float ul = (float) unmixLeakage;
                     ImageProcessor spi = slice.getProcessor();
                     for (int y = 0, j = 0; y < h; y++) {
                         for (int x = 0; x < w; x++, j++) {
-                            float v = spi.getf(x, y) - mx[j] * us;
+                            float v = spi.getf(x, y) - mx[j] * ul;
                             if (v < 0)
                                 v = 0;
                             spi.setf(x, y, v);
@@ -418,7 +419,7 @@ public class FluoCode_Reader implements PlugIn {
 
         float[] mn = new float[n];
         float[] mx = new float[n];
-        float hs = (float) hueStrictness;
+        float lk = (float) leakageK;
 
         for (int k = 0; k < chNum; k++) {
             for (int l = 0; l < chNum; l++) {
@@ -438,15 +439,15 @@ public class FluoCode_Reader implements PlugIn {
                     mn[j] = Math.min(pk[j], pl[j]);
                 }
 
-                /* --- leakage correction if match --- */
-                for (int idx = 0; idx < channelPairs.size(); idx++) {
+                /* --- subtract FRET-derived signal if this pair matches a row --- */
+                for (int idx = 0; idx < fretRows.size(); idx++) {
                     float[] ref = fretRef[idx];
                     if (ref == null)
                         continue; //
-                    int[] pair = channelPairs.get(idx);
+                    int[] pair = fretRows.get(idx);
                     int a = pair[0], b = pair[1], c = pair[2];
                     if ((k == c && (l == a || l == b)) || (l == c && (k == a || k == b))) {
-                        float lf = (float) (double) leakageLevels.get(idx);
+                        float lf = (float) (double) fretLeakage.get(idx);
                         for (int j = 0; j < n; j++) {
                             mn[j] -= ref[j] * lf;
                         }
@@ -465,16 +466,16 @@ public class FluoCode_Reader implements PlugIn {
                     }
                 }
 
-                /* --- diff = min - max*hueStrictness --- */
+                /* --- hue extraction: I_ab = max(0, min(a,b) - k * max(others)) --- */
                 float[] df = new float[n];
                 for (int j = 0; j < n; j++) {
-                    float v = mn[j] - mx[j] * hs;
+                    float v = mn[j] - mx[j] * lk;
                     df[j] = v > 0f ? v : 0f;
                 }
                 FloatProcessor diffFp = new FloatProcessor(w, h, df, null);
 
-                /* --- save MinDiff slice (16-bit) --- */
-                minDiffStack.addSlice("MinDiff_" + (k + 1) + "_" + (l + 1),
+                /* --- save hue-extracted slice I_ab (16-bit) --- */
+                hueStack.addSlice("I_" + (k + 1) + "_" + (l + 1),
                         diffFp.convertToShort(false));
 
                 /* --- segmentation by classifier --- */
@@ -516,7 +517,7 @@ public class FluoCode_Reader implements PlugIn {
                 }
                 ByteProcessor finalBp = new ByteProcessor(w, h, fin, null);
 
-                probStack.addSlice("P_" + fileName + "_pair" + count, finalBp);
+                probStack.addSlice("Pstar_" + fileName + "_pair" + count, finalBp);
                 seg.close();
                 diffImg.close();
             }
@@ -527,12 +528,12 @@ public class FluoCode_Reader implements PlugIn {
             IJ.saveAsTiff(new ImagePlus("ProbMap", probStack),
                     saveDir + File.separator + "Prob_" + fileName + ".tif");
         }
-        if (saveMinDiffStack) {
-            new FileSaver(new ImagePlus("MinDiffStack", minDiffStack))
-                    .saveAsTiffStack(saveDir + File.separator + "MinDiffStack_" + fileName + ".tif");
+        if (saveHueExtracted) {
+            new FileSaver(new ImagePlus("HueExtracted", hueStack))
+                    .saveAsTiffStack(saveDir + File.separator + "HueExtracted_" + fileName + ".tif");
         }
-        if (saveFinalLabel) {
-            makeFinalLabel(probStack, imp, saveDir, fileName);
+        if (saveDecoded) {
+            makeDecodedImage(probStack, imp, saveDir, fileName);
         }
         IJ.log("  Finished " + fileName + " in "
                 + formatElapsed(System.currentTimeMillis() - imageStart));
@@ -556,9 +557,9 @@ public class FluoCode_Reader implements PlugIn {
         return m + " min " + sec + " s";
     }
 
-    /* ========== makeFinalLabel() ========== */
-    private void makeFinalLabel(ImageStack probStack, ImagePlus rawImp,
-                                String saveDir, String base) {
+    /* ========== makeDecodedImage() ========== */
+    private void makeDecodedImage(ImageStack probStack, ImagePlus rawImp,
+                                  String saveDir, String base) {
 
         int w = probStack.getWidth(), h = probStack.getHeight();
         int nPairs = probStack.getSize(); // total label number
@@ -596,7 +597,7 @@ public class FluoCode_Reader implements PlugIn {
             }
         }
 
-        int thr = (int) Math.round(labelThresh * 255.0);
+        int thr = (int) Math.round(decodeThresh * 255.0);
         for (int i = 0; i < label.length; i++) {
             if (isSat[i]) {
                 label[i] = (byte) 255;
@@ -606,20 +607,20 @@ public class FluoCode_Reader implements PlugIn {
         }
 
         ByteProcessor lblBP = new ByteProcessor(w, h, label, null);
-        ImagePlus out = new ImagePlus("FinalLabel_" + base, lblBP);
+        ImagePlus out = new ImagePlus("Decoded_" + base, lblBP);
         out.getProcessor().setLut(makeDynamicLabelLUT(nPairs));
 
         new FileSaver(out)
-                .saveAsTiff(saveDir + File.separator + "FinalLabel_" + base + ".tif");
+                .saveAsTiff(saveDir + File.separator + "Decoded_" + base + ".tif");
     }
 
-    /* ---------- Channel-pair & leakage setup ---------- */
-    private void setupChannelPairs() {
+    /* ---------- Setup for subtraction of FRET-derived signals ---------- */
+    private void setupFretRows() {
         JDialog dialog = new JDialog((Frame) null,
-                "Channel Pairs and Leakage Level", true);
+                "Subtraction of FRET-derived signals", true);
 
         DefaultTableModel model = new DefaultTableModel(
-                new Object[] { "Channel A", "Channel B", "Channel C", "Leakage Level (x)" }, 0) {
+                new Object[] { "Channel A", "Channel B", "Channel C", "FRET leakage parameter (x)" }, 0) {
             @Override
             public boolean isCellEditable(int row, int col) {
                 return true;
@@ -630,10 +631,10 @@ public class FluoCode_Reader implements PlugIn {
 
         JTable table = new JTable(model);
 
-        JButton add = new JButton("Add Pair");
+        JButton add = new JButton("Add Row");
         add.addActionListener(e -> model.addRow(new Object[] { 1, 4, 3, 0.0 }));
 
-        JButton del = new JButton("Delete Selected Pair");
+        JButton del = new JButton("Delete Selected Row");
         del.addActionListener(e -> {
             int r = table.getSelectedRow();
             if (r >= 0) {
@@ -647,7 +648,7 @@ public class FluoCode_Reader implements PlugIn {
 
         JButton ok = new JButton("OK");
         ok.addActionListener(e -> {
-            ArrayList<int[]> tmpPairs = new ArrayList<>();
+            ArrayList<int[]> tmpRows = new ArrayList<>();
             ArrayList<Double> tmpLeaks = new ArrayList<>();
             for (int i = 0; i < model.getRowCount(); i++) {
                 try {
@@ -668,7 +669,7 @@ public class FluoCode_Reader implements PlugIn {
                                 "Input error", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
-                    tmpPairs.add(new int[] { a, b, c });
+                    tmpRows.add(new int[] { a, b, c });
                     tmpLeaks.add(x);
                 } catch (NumberFormatException ex) {
                     JOptionPane.showMessageDialog(dialog,
@@ -678,17 +679,17 @@ public class FluoCode_Reader implements PlugIn {
                 }
             }
             // It is reflected after the all codes run
-            channelPairs.clear();
-            leakageLevels.clear();
-            channelPairs.addAll(tmpPairs);
-            leakageLevels.addAll(tmpLeaks);
+            fretRows.clear();
+            fretLeakage.clear();
+            fretRows.addAll(tmpRows);
+            fretLeakage.addAll(tmpLeaks);
             dialog.dispose();
         });
 
         JButton cancel = new JButton("Cancel");
         cancel.addActionListener(e -> {
-            channelPairs.clear();
-            leakageLevels.clear();
+            fretRows.clear();
+            fretLeakage.clear();
             dialog.dispose();
         });
 
@@ -705,7 +706,7 @@ public class FluoCode_Reader implements PlugIn {
         dialog.setVisible(true);
     }
 
-    /* ---------- Unmixing group string parser (strict) ---------- */
+    /* ---------- Channel group string parser (strict) ---------- */
     private void parseGroupString(String s, String label) {
         if (s == null)
             return;
@@ -726,7 +727,7 @@ public class FluoCode_Reader implements PlugIn {
                 if (token.contains("-")) {
                     String[] lr = token.split("-");
                     if (lr.length != 2) {
-                        unmixParseErrors.add(label + ": '" + token
+                        groupParseErrors.add(label + ": '" + token
                                 + "' is not a valid range; use the form a-b (input: '" + original + "')");
 
                         continue;
@@ -738,7 +739,7 @@ public class FluoCode_Reader implements PlugIn {
                 }
 
                 if (from <= 0 || to <= 0) {
-                    unmixParseErrors.add(label + ": '" + token
+                    groupParseErrors.add(label + ": '" + token
                             + "' contains a channel number less than 1 (input: '" + original + "')");
                     continue;
                 }
@@ -754,13 +755,13 @@ public class FluoCode_Reader implements PlugIn {
                 }
 
             } catch (NumberFormatException e) {
-                unmixParseErrors.add(label + ": '" + token
+                groupParseErrors.add(label + ": '" + token
                         + "' is not an integer (input: '" + original + "')");
             }
         }
 
         if (list.isEmpty()) {
-            unmixParseErrors.add(label + ": no valid channel numbers (input: '" + original + "')");
+            groupParseErrors.add(label + ": no valid channel numbers (input: '" + original + "')");
             return;
         }
 
@@ -768,7 +769,7 @@ public class FluoCode_Reader implements PlugIn {
         for (int i = 0; i < arr.length; i++) {
             arr[i] = list.get(i);
         }
-        unmixGroups.add(arr);
+        channelGroups.add(arr);
     }
 
     private LUT makeDynamicLabelLUT(int n) {
