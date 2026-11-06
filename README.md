@@ -31,7 +31,7 @@ The other two commands sit beside this workflow rather than inside it:
 
 - **The ilastik application is required**, not only its Fiji plugin. You do the labeling there, and that labeling is what produces the `.ilp` project file for FluoCode Reader.
 - **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed — on Windows, for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, and set to the real installation, prediction fails and FluoCode Reader cannot produce probability maps. Set it once per Fiji installation, and again whenever ilastik is moved, reinstalled or updated.
-- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that ilastik application has open.
+- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that the ilastik application has open.
 
 ### Labkit — for Labkit classifier files
 
@@ -63,7 +63,7 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 ### Processing overview
 
-1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions. If a channel's probability comes back uniformly 0.5 at every pixel — what ilastik returns for an image holding only one class, described under [Decode FluoCodes from Probability Map](#notes) below — it is replaced by zero. Because *P*<sub>ab\*</sub> is a per-pixel minimum that includes the single-channel probabilities, that channel then contributes nothing to any pair it belongs to.
+1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions. If a channel's probability comes back uniformly 0.5 at every pixel — what ilastik returns for an image holding only one class, see the [Notes](#notes) under **Decode FluoCodes from Probability Map** below — it is replaced by zero. Because *P*<sub>ab\*</sub> is a per-pixel minimum that includes the single-channel probabilities, that channel then contributes nothing to any pair it belongs to.
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
    where *k* is the leakage parameter. If any FRET rows are configured, the FRET-derived signal is subtracted from `min(a, b)` first (see below). Hue extraction always starts from the raw channels, so the correction in step 1 never reaches *I*<sub>ab</sub>.
@@ -72,14 +72,17 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 #### Subtraction of FRET-derived signals
 
-A FluoCode is carried by two fluorophores in the same object, one for each channel of the pair. When those two sit close enough to transfer energy, the FluoCode stops staying inside its own two channels: part of the absorbed light is re-emitted at a longer wavelength and lands in a third channel *C* that was never labeled. A pixel that really carries FluoCode *A*+*B* then has signal in *C* as well, so `min(A, C)` and `min(B, C)` are both non-zero and hue extraction calls *A*+*C* and *B*+*C* in addition to the real pair. The result is false FluoCodes that follow the real one around, which no threshold can separate out, because they sit exactly where the true signal is.
+When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
 
-**Subtract FRET-derived signals** removes them. Each row of the table names three channels and a factor: *A* and *B* are the two channels of the FluoCode that undergoes FRET, *C* is the channel the transferred signal lands in, and *x* is the fraction of the *A*+*B* signal that appears there. The reference signal is `min(A, B)`, the real FluoCode itself, and `min(A, B) × x` is subtracted from `min()` for the pair of *C* with *A* and the pair of *C* with *B*. Every other pair is left alone.
+Ticking the option opens a table, and each row takes four values:
 
-- The subtraction happens inside step 2, after `min(a, b)` and before the `max(other channels)` term, so a larger *x* removes more of the suspect pair before *k* is applied at all.
-- Like the rest of hue extraction it reads the **raw** channels, and it does not touch the single-channel predictions of step 1.
-- *C* must differ from *A* and *B*. A row naming a channel the image does not have is skipped, with a warning in the Log.
-- One row is given per FluoCode that shows FRET, so several rows can be active at once. This is the correction described in Figure S5 of the paper; it is not linear unmixing.
+| Field | Meaning |
+|---|---|
+| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
+| Channel C | the channel its signal appears in; must differ from A and B |
+| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
+
+`min(A, B) × x` is then subtracted from `min()` for the pair of *C* with *A* and the pair of *C* with *B*, inside step 2 and before its `max(other channels)` term. Every other pair is left alone, and the single-channel predictions of step 1 are not affected. Give one row per FluoCode that shows FRET; a row naming a channel the image does not have is skipped, with a warning in the Log.
 
 ### Options
 
@@ -90,12 +93,12 @@ A FluoCode is carried by two fluorophores in the same object, one for each chann
 | Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**.|
 | Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted before hue extraction. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
 | Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
-| Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). |
+| Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). Off by default. |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
-| Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended|
+| Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended. |
 | Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 instead of a FluoCode. A saturated channel no longer reports its true intensity, so the balance between channels — which is what a FluoCode is — cannot be recovered for such a pixel. Label 255 is therefore an exception to classification: these pixels are set aside instead of being given a FluoCode that may be wrong, and **Count Decoded Pixels per Region** does not count them under any FluoCode label. Intended for 16-bit raw images. |
 | Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. |
-| Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended|
+| Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended. |
 
 At least one output must be selected.
 
@@ -111,7 +114,7 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 | `HueExtracted_<name>.tif` | Hue-extracted image stack *I*<sub>ab</sub> (16-bit) |
 | `Decoded_<name>.tif` | Decoded FluoCode image, 8-bit: 0 = background, 1…*N*(*N*−1)/2 = FluoCode (pair number), 255 = saturated. A label LUT is applied. |
 
-**Decode FluoCodes from Probability Map** writes its output under the same name, `Decoded_<name>.tif`, because it produces the same kind of image. At the same threshold the two files are identical, so re-decoding `Prob_<name>.tif` in the same folder is harmless; at a *different* threshold it replaces the image written here. Use a separate save directory if both are needed.
+**Decode FluoCodes from Probability Map** writes its output under the same name, `Decoded_<name>.tif`, because it works on the same probability map by the same decoding rule. Re-decoding `Prob_<name>.tif` into the same folder therefore replaces the image written here. Use a separate save directory if you want to keep both.
 
 ---
 
@@ -131,7 +134,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 | Option | Description |
 |---|---|
 | Save directory | Output folder (required). |
-| Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. The default value (0.2) is recommended|
+| Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. The default value (0.2) is recommended. |
 | Slices to exclude (optional) | Slices (1-based, comma-separated, e.g. `3,5`) to ignore during decoding, so that the FluoCodes they carry are left out of the result. Leave it empty — the default — to use every slice. Numbers that do not exist in the image are reported in the Log. |
 | LUT file (optional) | LUT applied to the output. If empty, the same label palette as FluoCode Reader is used. |
 
@@ -151,7 +154,10 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Atlas files
 
-**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this in .
+**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this, deposited on Zenodo:
+
+- **Zenodo record:** _URL to be added_
+- **DOI:** _to be added_
 
 **1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
 
@@ -181,6 +187,7 @@ Counts how many pixels carry each FluoCode label for each region.
 3. In the dialog:
     - **Allen Atlas:** the region segmentation image.
     - **Decoded FluoCodes:** the decoded FluoCode image.
+    - **Number of FluoCodes:** how many FluoCode labels to count, from 1 to 254. The default, 21, is the number of channel pairs in 7-channel data; for *N* channels set it to *N*(*N*−1)/2. The value is remembered until Fiji is closed.
 4. Select one or more regions from the list (Ctrl/Shift-click for multiple).
 
 
@@ -190,13 +197,13 @@ Counts how many pixels carry each FluoCode label for each region.
 |---|---|
 | Region | Region name |
 | Pixel Counts | Total number of pixels in the region |
-| Value 1 … Value 21 Pixel Count | Number of pixels in the region with each FluoCode label (1–21) |
+| Value 1 … Value *n* Pixel Count | Number of pixels in the region with each FluoCode label, one column per label, where *n* is **Number of FluoCodes** |
 
-Labels outside 1–21 (background, saturated) are not counted per value, but are included in the region total. The current version counts labels 1–21, which corresponds to 7-channel data (21 channel pairs).
+Labels outside 1…*n* are not counted per value, but are included in the region total; this covers background (0) and saturated pixels (255). If any pixel of the selected regions carries a label above *n*, the Log reports how many there are and the highest label found, so that **Number of FluoCodes** can be corrected.
 
 ### Region names
 
-The region names offered in the dialog and written to the Results table come from the region list inside the JAR, which also fixes which pixel value of the segmentation image belongs to which region. Only regions on that list can be counted. The same list is distributed with the atlas files as `value_name_.csv`; see [zenodo_URL] to inspect it or to use a list of your own.
+The region names offered in the dialog and written to the Results table come from the region list inside the JAR, which also fixes which pixel value of the segmentation image belongs to which region. Only regions on that list can be counted. The same list is distributed with the atlas files as `value_name_.csv`; see [Atlas files](#atlas-files) above to inspect it or to use a list of your own.
 
 ---
 

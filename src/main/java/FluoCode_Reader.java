@@ -504,6 +504,7 @@ public class FluoCode_Reader implements PlugIn {
                     tmpP.multiply(255.0); // x255 Probability map
                     segBp = (ByteProcessor) tmpP.convertToByte(false);
                 }
+                checkAndReplaceIfUniform(segBp);
 
                 /* --- final = min(singleProb[k], singleProb[l], segBp) --- */
                 byte[] pkb = (byte[]) singleProb[k].getPixels();
@@ -541,6 +542,11 @@ public class FluoCode_Reader implements PlugIn {
 
     /* ---------- helpers ---------- */
 
+    /**
+     * Replaces a probability map that is uniformly 128 with zeros. ilastik returns 0.5
+     * for every class at every pixel when the input holds only one class, which carries
+     * no information but would otherwise win the per-pixel maximum during decoding.
+     */
     private void checkAndReplaceIfUniform(ByteProcessor bp) {
         byte[] d = (byte[]) bp.getPixels();
         for (byte b : d)
