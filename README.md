@@ -86,7 +86,7 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 ### Processing overview
 
-1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions.
+1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions. If a channel's probability comes back uniformly 0.5 at every pixel — what ilastik returns for an image holding only one class, described under [Decode FluoCodes from Probability Map](#notes) below — it is replaced by zero. Because *P*<sub>ab\*</sub> is a per-pixel minimum that includes the single-channel probabilities, that channel then contributes nothing to any pair it belongs to.
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
    where *k* is the leakage parameter. If any FRET rows are configured, the FRET-derived signal is subtracted from `min(a, b)` first (see below). Hue extraction always starts from the raw channels, so the correction in step 1 never reaches *I*<sub>ab</sub>.
@@ -172,7 +172,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ### Notes
 
-- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an input holds only one class, so that there is nothing to tell apart, it returns a probability of 0.5 (128 in 8-bit) at every pixel instead of an empty map. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
+- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an image holds only one class — in practice when it is all background, with no signal anywhere — ilastik does not report it as background. It returns a probability of 0.5 for **both** classes at every pixel, so the signal-class map, which is the one the plugin reads, comes back uniformly 0.5 (128 in 8-bit) instead of 0. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
 - Saturated pixels cannot be identified from a probability map, so label 255 is not used.
 
 ### Output files
