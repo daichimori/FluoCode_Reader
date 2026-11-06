@@ -19,8 +19,8 @@ Typical workflow: **FluoCode Reader** → **Count Decoded Pixels per Region**.
 
 The other two commands sit beside this workflow rather than inside it:
 
-- **Decode FluoCodes from Probability Map** It re-decodes an already saved probability map at a different decoding threshold, or with some FluoCodes left out, so that trying another threshold does not mean running the classifiers again from the start.
-- **Draw Region Boundaries on Decoded FluoCodes** It shows where the region boundaries fall on a decoded FluoCode image, for figures and for judging the atlas registration by eye. It can be run on a decoded FluoCode image at any time; counting is not the only way to look at the data.
+- **Decode FluoCodes from Probability Map** — it re-decodes an already saved probability map at a different decoding threshold, or with some FluoCodes left out, so that trying another threshold does not mean running the classifiers again from the start.
+- **Draw Region Boundaries on Decoded FluoCodes** — it shows where the region boundaries fall on a decoded FluoCode image, for figures and for judging the atlas registration by eye. It can be run on a decoded FluoCode image at any time; counting is not the only way to look at the data.
 
 ## Requirements
 
@@ -46,7 +46,7 @@ The other two commands sit beside this workflow rather than inside it:
 ---
 
 
-### Atlas files
+## Atlas files
 
 **Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this.
 
@@ -86,28 +86,33 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 ### Processing overview
 
-1. **Residual unmixing leakage correction (optional).** Linear unmixing leaves some signal leaking between spectrally close channels. For each channel group defined in the dialog, the brightest other channel *of the same group* × unmixing leakage parameter is subtracted from each channel of that group. Off by default.
-2. **Single-channel probability.** Each channel is classified on its own, after the correction of step 1 if it was enabled.
-3. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
+1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions.
+2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
-   where *k* is the leakage parameter. If any FRET rows are configured, the FRET-derived signal is subtracted from `min(a, b)` beforehand.
-4. **Probability map.** *I*<sub>ab</sub> is classified with the same classifier, giving the probability map *P*<sub>ab</sub>.
-5. **Corrected probability map.** *P*<sub>ab\*</sub> is the per-pixel minimum of the two single-channel probabilities and *P*<sub>ab</sub>. This is the map that is saved and decoded.
+   where *k* is the leakage parameter. If any FRET rows are configured, the FRET-derived signal is subtracted from `min(a, b)` first (see below). Hue extraction always starts from the raw channels, so the correction in step 1 never reaches *I*<sub>ab</sub>.
+3. **Probability map.** *I*<sub>ab</sub> is classified with the same classifier, giving the probability map *P*<sub>ab</sub>.
+4. **Corrected probability map.** *P*<sub>ab\*</sub> is the per-pixel minimum of the two single-channel probabilities and *P*<sub>ab</sub>. This is the map that is saved and decoded.
 
-#### Step 1 and step 3 are not the same thing
+#### Subtraction of FRET-derived signals
 
-Both subtract a scaled "brightest other channel", but they answer different questions and are controlled by separate parameters.
+A FluoCode is carried by two fluorophores in the same object, one for each channel of the pair. When those two sit close enough to transfer energy, the FluoCode stops staying inside its own two channels: part of the absorbed light is re-emitted at a longer wavelength and lands in a third channel *C* that was never labeled. A pixel that really carries FluoCode *A*+*B* then has signal in *C* as well, so `min(A, C)` and `min(B, C)` are both non-zero and hue extraction calls *A*+*C* and *B*+*C* in addition to the real pair. The result is false FluoCodes that follow the real one around, which no threshold can separate out, because they sit exactly where the true signal is.
 
-| | Residual unmixing leakage correction (step 1) | Hue extraction (step 3) |
-|---|---|---|
-| Purpose | remove leakage that linear unmixing failed to separate | isolate the signal that belongs to one channel pair, i.e. define the FluoCode |
-| Applied to | each single channel, on its own | `min(a, b)` of a channel pair |
-| Subtracts the brightest of | the other channels **of the same channel group** | **all** other channels |
-| Parameter | Unmixing leakage parameter | Leakage parameter *k* |
-| Affects | the single-channel probabilities only | *I*<sub>ab</sub> and *P*<sub>ab</sub> only |
-| When | optional, off by default | always |
+**Subtract FRET-derived signals** removes them. Each row of the table names three channels and a factor: *A* and *B* are the two channels of the FluoCode that undergoes FRET, *C* is the channel the transferred signal lands in, and *x* is the fraction of the *A*+*B* signal that appears there. The reference signal is `min(A, B)`, the real FluoCode itself, and `min(A, B) × x` is subtracted from `min()` for the pair of *C* with *A* and the pair of *C* with *B*. Every other pair is left alone.
 
-In particular, step 1 never changes *I*<sub>ab</sub>: hue extraction always starts from the raw channels.
+- The subtraction happens inside step 2, after `min(a, b)` and before the `max(other channels)` term, so a larger *x* removes more of the suspect pair before *k* is applied at all.
+- Like the rest of hue extraction it reads the **raw** channels, and it does not touch the single-channel predictions of step 1.
+- *C* must differ from *A* and *B*. A row naming a channel the image does not have is skipped, with a warning in the Log.
+- One row is given per FluoCode that shows FRET, so several rows can be active at once. This is the correction described in Figure S5 of the paper; it is not linear unmixing.
+
+#### The three subtractions are not the same thing
+
+| | Residual unmixing leakage (step 1) | Leakage parameter *k* (step 2) | FRET-derived signals (step 2) |
+|---|---|---|---|
+| Purpose | remove leakage that linear unmixing failed to separate | isolate the signal that belongs to one channel pair | remove the pairs that FRET invented |
+| Subtracts | the brightest other channel of the same group | the brightest of **all** other channels | `min(A, B)` of the row |
+| Applied to | each single channel, on its own | `min(a, b)` of every pair | `min()` of the row's *C* pairs only |
+| Affects | the single-channel predictions only | *I*<sub>ab</sub> and *P*<sub>ab</sub> | *I*<sub>ab</sub> and *P*<sub>ab</sub> |
+| When | optional, off by default | always | optional, off by default |
 
 ### Options
 
@@ -116,7 +121,7 @@ In particular, step 1 never changes *I*<sub>ab</sub>: hue extraction always star
 | Save directory | Output folder (required). |
 | Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
 | Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**. Applies to hue extraction only, not to the residual unmixing leakage correction. |
-| Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted before hue extraction. Channel C must differ from A and B. This is the correction described in Figure S5 of the paper; it is not linear unmixing. |
+| Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted before hue extraction. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
 | Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
@@ -167,7 +172,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ### Notes
 
-- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an input has only one class, so that every class is equally likely — it returns a probability of 0.5 (128 in 8-bit) at every pixel instead of an empty map. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
+- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an input holds only one class, so that there is nothing to tell apart, it returns a probability of 0.5 (128 in 8-bit) at every pixel instead of an empty map. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
 - Saturated pixels cannot be identified from a probability map, so label 255 is not used.
 
 ### Output files
@@ -184,7 +189,7 @@ Counts how many pixels carry each FluoCode label for each region.
 
 ### Usage
 
-1. Open the region segmentation image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices. Multi-slice stacks are supported; counts are summed over all slices. The segmentation image must already be registered to the sample — see [Example data and atlas files](#example-data-and-atlas-files).
+1. Open the region segmentation image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices. Multi-slice stacks are supported; counts are summed over all slices. The segmentation image must already be registered to the sample — see [Atlas files](#atlas-files).
 2. Run the command (an image must be open).
 3. In the dialog:
     - **Allen Atlas:** the region segmentation image.
@@ -261,19 +266,21 @@ Plugins>FluoCode Reader, "-"
 Plugins>FluoCode Reader, "Decode FluoCodes from Probability Map...", FluoCode_Identifier
 Plugins>FluoCode Reader, "Count Decoded Pixels per Region...", FluoCode_Region_Counter
 Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoCode_Region_Outliner
+```
 
 ## Example data
 
 Example data for trying the plugin is to be deposited on Zenodo.
 
-
-### Example data
-
 | File | Content |
 |---|---|
 | Example image | An unmixed multichannel image, so that FluoCode Reader can be tried without preparing data first. |
 | Example classifier (`.ilp`) | The ilastik project trained for that image. Pass it to FluoCode Reader as the **Classifier File** to reproduce the example output. |
-```
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
 ## Citation
 
 If you use this software, please cite the associated publication. Citation details will be added upon publication.
