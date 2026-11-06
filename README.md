@@ -49,6 +49,8 @@ The other two commands sit beside this workflow rather than inside it:
 ## FluoCode Reader...
 
 ### Input
+<img width="198" height="123" alt="image" src="https://github.com/user-attachments/assets/eb692547-7425-48c6-b0e4-7e971c85901b" />
+
 
 A drop-down list lets you choose one of the following:
 
@@ -85,6 +87,8 @@ Ticking the option opens a table, and each row takes four values:
 `min(A, B) × x` is then subtracted from `min()` for the pair of *C* with *A* and the pair of *C* with *B*, inside step 2 and before its `max(other channels)` term. Every other pair is left alone, and the single-channel predictions of step 1 are not affected. Give one row per FluoCode that shows FRET; a row naming a channel the image does not have is skipped, with a warning in the Log.
 
 ### Options
+<img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
+
 
 | Option | Description |
 |---|---|
