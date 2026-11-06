@@ -58,8 +58,7 @@ A drop-down list lets you choose one of the following:
 
 Each image should be an **unmixed multichannel image**. The number of channels *N* is read from the image itself, and it is what determines the *N*(*N*−1)/2 channel pairs that are evaluated.
 
-> **Note on z-stacks and time series.** Only the first z-slice and the first time point are processed. If an image holds several z-slices or several frames, the remaining ones are simply ignored: no warning is shown, and nothing about them reaches the output.
->
+
 > To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...** — or one at a time from **Select Image File...**. Each file then gets its own set of outputs. If those results are later to be counted per region as a volume, combine the resulting `Decoded_<name>.tif` files into one stack (**Image › Stacks › Images to Stack**), so that the stack matches the slices of the registered atlas.
 
 ### Processing overview
@@ -82,23 +81,13 @@ A FluoCode is carried by two fluorophores in the same object, one for each chann
 - *C* must differ from *A* and *B*. A row naming a channel the image does not have is skipped, with a warning in the Log.
 - One row is given per FluoCode that shows FRET, so several rows can be active at once. This is the correction described in Figure S5 of the paper; it is not linear unmixing.
 
-#### The three subtractions are not the same thing
-
-| | Residual unmixing leakage (step 1) | Leakage parameter *k* (step 2) | FRET-derived signals (step 2) |
-|---|---|---|---|
-| Purpose | remove leakage that linear unmixing failed to separate | isolate the signal that belongs to one channel pair | remove the pairs that FRET invented |
-| Subtracts | the brightest other channel of the same group | the brightest of **all** other channels | `min(A, B)` of the row |
-| Applied to | each single channel, on its own | `min(a, b)` of every pair | `min()` of the row's *C* pairs only |
-| Affects | the single-channel predictions only | *I*<sub>ab</sub> and *P*<sub>ab</sub> | *I*<sub>ab</sub> and *P*<sub>ab</sub> |
-| When | optional, off by default | always | optional, off by default |
-
 ### Options
 
 | Option | Description |
 |---|---|
 | Save directory | Output folder (required). |
 | Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
-| Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**. Applies to hue extraction only, not to the residual unmixing leakage correction. |
+| Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**.|
 | Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). For any pair made of C and either A or B, `min(A, B) × x` is subtracted before hue extraction. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
 | Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). |
@@ -124,8 +113,6 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 
 **Decode FluoCodes from Probability Map** writes its output under the same name, `Decoded_<name>.tif`, because it produces the same kind of image. At the same threshold the two files are identical, so re-decoding `Prob_<name>.tif` in the same folder is harmless; at a *different* threshold it replaces the image written here. Use a separate save directory if both are needed.
 
-All parameters are written to the Log window, followed by per-channel and per-pair progress, the processing time of each image, and the total processing time.
-
 ---
 
 ## Decode FluoCodes from Probability Map...
@@ -150,7 +137,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ### Notes
 
-- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an image holds only one class — in practice when it is all background, with no signal anywhere — ilastik does not report it as background. It returns a probability of 0.5 for **both** classes at every pixel, so the signal-class map, which is the one the plugin reads, comes back uniformly 0.5 (128 in 8-bit) instead of 0. Such a slice carries no information, yet a flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
+- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an image holds only one class — in practice when it is all background, with no signal anywhere — ilastik does not report it as background. It returns a probability of 0.5 for both classes at every pixel, so the signal-class map, which is the one the plugin reads, comes back uniformly 0.5 (128 in 8-bit) instead of 0. A flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
 - Saturated pixels cannot be identified from a probability map, so label 255 is not used.
 
 ### Output files
@@ -164,7 +151,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Atlas files
 
-**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this.
+**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this in .
 
 **1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
 
@@ -178,9 +165,8 @@ A two-column list mapping pixel values in `annotationAtlas.tif` to region names.
 
 To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas — a line whose name contains a comma is ignored, and a non-numeric line stops reading at that point.
 
-### Which image to register the atlas to
 
-Register the atlas to the **ordinary fluorescence image, as it was before FluoCode Reader ran** — not to `Decoded_<name>.tif`. A decoded FluoCode image holds nothing but label values, so the anatomical structures that landmarks are placed on are no longer visible in it and the alignment is hard to judge. The fluorescence image still shows them, and because it has the same width, height and slice count as the decoded image produced from it, the warped atlas obtained this way can be used with the decoded image directly.
+>Register the atlas to the fluorescence image, as it was before FluoCode Reader ran. A decoded FluoCode image holds nothing but label values, so the anatomical structures that landmarks are placed on are no longer visible and the alignment is difficult. 
 
 ---
 
