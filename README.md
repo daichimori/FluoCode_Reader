@@ -61,6 +61,8 @@ A drop-down list lets you choose one of the following:
 Each image should be an **unmixed multichannel image**. The number of channels *N* is read from the image itself, and it is what determines the *N*(*N*−1)/2 channel pairs that are evaluated.
 
 
+> **Only the first z-slice and the first time point are processed.** If an image holds several z-slices or several frames, the remaining ones are ignored without a warning.
+>
 > To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...** — or one at a time from **Select Image File...**. Each file then gets its own set of outputs. If those results are later to be counted per region as a volume, combine the resulting `Decoded_<name>.tif` files into one stack (**Image › Stacks › Images to Stack**), so that the stack matches the slices of the registered atlas.
 
 ### Processing overview
@@ -270,6 +272,8 @@ Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoC
 ## Example data
 
 Example data for trying the plugin is to be deposited on Zenodo.
+
+- **Zenodo record:** _URL to be added_
 
 | File | Content |
 |---|---|
