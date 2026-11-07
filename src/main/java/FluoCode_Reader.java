@@ -381,6 +381,25 @@ public class FluoCode_Reader implements PlugIn {
                 }
             }
 
+            /* --- Subtract FRET-derived signal if this channel is the C of a row --- */
+            for (int idx = 0; idx < fretRows.size(); idx++) {
+                float[] ref = fretRef[idx];
+                if (ref == null)
+                    continue; // row referenced a channel the image does not have
+                if (fretRows.get(idx)[2] != c)
+                    continue; // this channel is not the acceptor channel of the row
+                float lf = (float) (double) fretLeakage.get(idx);
+                ImageProcessor spi = slice.getProcessor();
+                for (int y = 0, j = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++, j++) {
+                        float v = spi.getf(x, y) - ref[j] * lf;
+                        if (v < 0)
+                            v = 0;
+                        spi.setf(x, y, v);
+                    }
+                }
+            }
+
             slice.show();
 
             IJ.log("Processing Channel " + (c + 1) + " (slice_c" + (c + 1)
