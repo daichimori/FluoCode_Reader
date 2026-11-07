@@ -66,7 +66,7 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 ### Processing overview
 
 
-1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. 
+1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted. 
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
    where *k* is the leakage parameter. 
@@ -84,7 +84,7 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). Off by default. |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
 | Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended. |
-| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 instead of a FluoCode. A saturated channel no longer reports its true intensity, so the balance between channels — which is what a FluoCode is — cannot be recovered for such a pixel. Label 255 is therefore an exception to classification: these pixels are set aside instead of being given a FluoCode that may be wrong, and **Count Decoded Pixels per Region** does not count them under any FluoCode label. Intended for 16-bit raw images. |
+| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 instead of a FluoCode. A saturated channel no longer reports its true intensity, so the hue cannot be recovered for such a pixel. Label 255 is therefore an exception to classification. |
 | Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. |
 | Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended. |
 
@@ -110,7 +110,6 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 
 #### Subtraction of FRET-derived signals
 
-When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
 <img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
 
 Ticking the option opens a table, and each row takes four values:
@@ -119,9 +118,8 @@ Ticking the option opens a table, and each row takes four values:
 |---|---|
 | Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
 | Channel C | the channel its signal appears in; must differ from A and B |
-| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
+| FRET leakage parameter *x* | the fraction of min(a, b) to subtract |
 
-`min(A, B) × x` is the leak the row accounts for. 
 The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
 
 
@@ -129,7 +127,7 @@ The corrected channels are used for the single-channel predictions of step 1, an
 
 ## Decode FluoCodes from Probability Map...
 
-Decodes a probability map stack (for example, `Prob_<name>.tif` from FluoCode Reader) into a decoded FluoCode image. Useful for re-decoding with a different threshold or with some FluoCodes excluded, without re-running the classifiers.
+Decodes a probability map stack (for example, `Prob_<name>.tif` from FluoCode Reader) into a decoded FluoCode image. Useful for re-decoding with a different threshold without repeated classification tasks.
 
 ### Input
 
@@ -147,10 +145,6 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 | Slices to exclude (optional) | Slices (1-based, comma-separated, e.g. `3,5`) to ignore during decoding, so that the FluoCodes they carry are left out of the result. Leave it empty — the default — to use every slice. Numbers that do not exist in the image are reported in the Log. |
 | LUT file (optional) | LUT applied to the output. If empty, the same label palette as FluoCode Reader is used. |
 
-### Notes
-
-- Slices in which every pixel is 128 are skipped automatically and reported in the Log. This corrects for a bug in ilastik: when an image holds only one class — in practice when it is all background, with no signal anywhere — ilastik does not report it as background. It returns a probability of 0.5 for both classes at every pixel, so the signal-class map, which is the one the plugin reads, comes back uniformly 0.5 (128 in 8-bit) instead of 0. A flat 0.5 would still beat the genuinely low probabilities of the other slices and win the per-pixel maximum, claiming the image for one FluoCode. Skipping these slices prevents that.
-- Saturated pixels cannot be identified only from a probability map, so label 255 is not used in "Decode FluoCodes from Probability Map...".
 
 
 ### Output files
@@ -173,16 +167,14 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 A region segmentation image derived from the annotation volume of the Allen Mouse Brain Common Coordinate Framework version 3 (CCFv3; Wang et al., 2020). Each pixel value identifies one brain region. Values are stored as 16-bit integers (0–65535), and 0 denotes pixels outside the atlas.
 
-Before use with the FluoCode Reader plugin, it must be registered to the sample image, for example by warping it with BigWarp in Fiji. Use **nearest-neighbor interpolation** during warping, so that pixel values remain valid region labels and are not blended into values that belong to other regions. After registration, it must have the same width, height and number of slices as the decoded FluoCode image (`Decoded_<name>.tif`) it is paired with.
+For "Count Decoded Pixels per Region..." and "## Draw Region Boundaries on Decoded FluoCodes...", it must be registered to the sample image, for example by warping it with BigWarp in Fiji. Register the atlas to the fluorescence image, as it was before FluoCode Reader ran. A decoded FluoCode image holds nothing but label values, so the anatomical structures or landmarks are no longer visible and the alignment is difficult. 
+Use **nearest-neighbor interpolation** during warping, so that pixel values remain valid region labels and are not blended into values that belong to other regions. After registration, it must have the same width, height and number of slices as the decoded FluoCode image (`Decoded_<name>.tif`) it is paired with.
 
 **2. `value_name_.csv` — region list**
 
-A two-column list mapping pixel values in `annotationAtlas.tif` to region names. Each line is in the form `pixel value,region name`. Region names are unique and contain no commas. This file is identical to the `value_name_.csv` embedded at the root of `FluoCode_Reader-1.0.0.jar`, which is the list the plugin actually reads; it is provided here so that the region definitions can be inspected without unpacking the JAR.
+A two-column list mapping pixel values in `annotationAtlas.tif` to region names.
 
-To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas — a line whose name contains a comma is ignored, and a non-numeric line stops reading at that point.
-
-
->Register the atlas to the fluorescence image, as it was before FluoCode Reader ran. A decoded FluoCode image holds nothing but label values, so the anatomical structures that landmarks are placed on are no longer visible and the alignment is difficult. 
+To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas.
 
 ---
 
