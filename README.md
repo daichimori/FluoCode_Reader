@@ -4,6 +4,13 @@ An ImageJ / Fiji plugin suite for decoding multiplexed fluorescent barcodes (Flu
 
 Each FluoCode is defined by a **pair of channels**. For an image with *N* channels, all *N*(*N*−1)/2 channel pairs are evaluated, and each pair corresponds to one FluoCode label.
 
+
+## Installation
+
+1. Download `FluoCode_Reader-1.0.0.jar` from the [Releases](https://github.com/daichimori/FluoCode_Reader/releases) page.
+2. Copy it into the `plugins` folder of Fiji. If an older version of the JAR is present, remove it first.
+3. Restart Fiji.
+
 ## Menu
 
 After installation, the tools appear under **Plugins › FluoCode Reader**:
@@ -37,11 +44,6 @@ The other two commands sit beside this workflow rather than inside it:
 
 - Provides `Calculate Probability Map With Labkit`. Run it with the GPU option enabled.
 
-## Installation
-
-1. Download `FluoCode_Reader-1.0.0.jar` from the [Releases](https://github.com/daichimori/FluoCode_Reader/releases) page.
-2. Copy it into the `plugins` folder of Fiji. If an older version of the JAR is present, remove it first.
-3. Restart Fiji.
 
 ---
 
