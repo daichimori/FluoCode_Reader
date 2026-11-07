@@ -329,6 +329,41 @@ public class FluoCode_Reader implements PlugIn {
             fretRef[idx] = ref;
         }
 
+        /* ---------- Corrected channels ----------
+         * For every FRET row the leak min(raw[a], raw[b]) x k is accumulated onto its
+         * target channel, and each target becomes max(0, raw - leak). All references
+         * are taken from the uncorrected image, and the corrected channels then feed
+         * everything downstream: the single-channel predictions, min(a, b) and
+         * max(other channels). The source image itself is never written to. */
+        float[][] fretLeak = new float[chNum][];
+        for (int idx = 0; idx < fretRows.size(); idx++) {
+            float[] ref = fretRef[idx];
+            if (ref == null)
+                continue; // row referenced a channel the image does not have
+            int t = fretRows.get(idx)[2];
+            float lf = (float) (double) fretLeakage.get(idx);
+            float[] acc = fretLeak[t];
+            if (acc == null) {
+                acc = new float[n];
+                fretLeak[t] = acc;
+            }
+            for (int j = 0; j < n; j++) {
+                acc[j] += ref[j] * lf;
+            }
+        }
+        for (int t = 0; t < chNum; t++) {
+            float[] acc = fretLeak[t];
+            if (acc == null)
+                continue;
+            float[] src = raw[t];
+            float[] corrected = new float[n];
+            for (int j = 0; j < n; j++) {
+                float v = src[j] - acc[j];
+                corrected[j] = v > 0 ? v : 0f;
+            }
+            raw[t] = corrected; // replaces the cached reference, not the image pixels
+        }
+
         /* --- Output stacks --- */
         ImageStack probStack = new ImageStack(w, h); // corrected probability map P_ab* (8-bit)
         ImageStack hueStack = new ImageStack(w, h); // hue-extracted images I_ab (16-bit)
@@ -342,18 +377,13 @@ public class FluoCode_Reader implements PlugIn {
                     "slice_c" + (c + 1),
                     imp.getStack().getProcessor(imp.getStackIndex(c + 1, 1, 1)).duplicate());
 
-            /* --- Subtract FRET-derived signal if this channel is the C of a row --- */
-            for (int idx = 0; idx < fretRows.size(); idx++) {
-                float[] ref = fretRef[idx];
-                if (ref == null)
-                    continue; // row referenced a channel the image does not have
-                if (fretRows.get(idx)[2] != c)
-                    continue; // this channel is not the acceptor channel of the row
-                float lf = (float) (double) fretLeakage.get(idx);
+            /* --- Apply this channel's accumulated FRET leak to the copy sent to the classifier --- */
+            if (fretLeak[c] != null) {
+                float[] acc = fretLeak[c];
                 ImageProcessor spi = slice.getProcessor();
                 for (int y = 0, j = 0; y < h; y++) {
                     for (int x = 0; x < w; x++, j++) {
-                        float v = spi.getf(x, y) - ref[j] * lf;
+                        float v = spi.getf(x, y) - acc[j];
                         if (v < 0)
                             v = 0;
                         spi.setf(x, y, v);
@@ -456,21 +486,6 @@ public class FluoCode_Reader implements PlugIn {
                 float[] pk = raw[k], pl = raw[l];
                 for (int j = 0; j < n; j++) {
                     mn[j] = Math.min(pk[j], pl[j]);
-                }
-
-                /* --- subtract FRET-derived signal if this pair matches a row --- */
-                for (int idx = 0; idx < fretRows.size(); idx++) {
-                    float[] ref = fretRef[idx];
-                    if (ref == null)
-                        continue; //
-                    int[] pair = fretRows.get(idx);
-                    int a = pair[0], b = pair[1], c = pair[2];
-                    if ((k == c && (l == a || l == b)) || (l == c && (k == a || k == b))) {
-                        float lf = (float) (double) fretLeakage.get(idx);
-                        for (int j = 0; j < n; j++) {
-                            mn[j] -= ref[j] * lf;
-                        }
-                    }
                 }
 
                 /* --- max(others) --- */

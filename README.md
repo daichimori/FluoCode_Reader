@@ -67,10 +67,12 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 ### Processing overview
 
+If any FRET rows are configured, the channels are corrected first and every step below then works on the corrected channels — see [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals).
+
 1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions. If a channel's probability comes back uniformly 0.5 at every pixel — what ilastik returns for an image holding only one class, see the [Notes](#notes) under **Decode FluoCodes from Probability Map** below — it is replaced by zero. Because *P*<sub>ab\*</sub> is a per-pixel minimum that includes the single-channel probabilities, that channel then contributes nothing to any pair it belongs to.
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
-   where *k* is the leakage parameter. If any FRET rows are configured, the FRET-derived signal is subtracted from `min(a, b)` first (see below). Hue extraction always starts from the raw channels, so the correction in step 1 never reaches *I*<sub>ab</sub>.
+   where *k* is the leakage parameter. Hue extraction reads the channels themselves, not the single-channel predictions, so the residual unmixing leakage correction of step 1 never reaches *I*<sub>ab</sub>.
 3. **Probability map.** *I*<sub>ab</sub> is classified with the same classifier, giving the probability map *P*<sub>ab</sub>.
 4. **Corrected probability map.** *P*<sub>ab\*</sub> is the per-pixel minimum of the two single-channel probabilities and *P*<sub>ab</sub>. This is the map that is saved and decoded.
 
@@ -86,7 +88,9 @@ Ticking the option opens a table, and each row takes four values:
 | Channel C | the channel its signal appears in; must differ from A and B |
 | FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
 
-`min(A, B) × x` is then subtracted in two places: from channel *C* itself before its single-channel prediction in step 1, and from `min()` for the pair of *C* with *A* and the pair of *C* with *B* in step 2, before that step's `max(other channels)` term. Values are clamped at 0, and every other channel and pair is left alone. Give one row per FluoCode that shows FRET; a row naming a channel the image does not have is skipped, with a warning in the Log.
+`min(A, B) × x` is the leak the row accounts for. Each row's leak is added onto its own channel *C*, so a channel named by several rows collects the leak of all of them, and that channel becomes `max(0, C − leak)`. Every `min(A, B)` is taken from the uncorrected image, and the correction is applied **once per channel**, not again per pair.
+
+The corrected channels are then what the rest of the run uses: the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. Channels no row names are left untouched, and the image you started from is never modified. Give one row per FluoCode that shows FRET; a row naming a channel the image does not have is skipped, with a warning in the Log.
 
 ### Options
 <img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
@@ -97,7 +101,7 @@ Ticking the option opens a table, and each row takes four values:
 | Save directory | Output folder (required). |
 | Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
 | Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**.|
-| Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). `min(A, B) × x` is subtracted from channel C before its single-channel prediction, and from any pair made of C and either A or B before hue extraction. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
+| Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). `min(A, B) × x` is subtracted from channel C, and everything downstream then uses the corrected channel. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
 | Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). Off by default. |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
