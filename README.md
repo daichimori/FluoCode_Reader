@@ -60,41 +60,18 @@ A drop-down list lets you choose one of the following:
 
 Each image should be an **unmixed multichannel image**. The number of channels *N* is read from the image itself, and it is what determines the *N*(*N*−1)/2 channel pairs that are evaluated.
 
-
-> **Only the first z-slice and the first time point are processed.** If an image holds several z-slices or several frames, the remaining ones are ignored without a warning.
 >
 > To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...** — or one at a time from **Select Image File...**. Each file then gets its own set of outputs. If those results are later to be counted per region as a volume, combine the resulting `Decoded_<name>.tif` files into one stack (**Image › Stacks › Images to Stack**), so that the stack matches the slices of the registered atlas.
 
 ### Processing overview
 
-If any FRET rows are configured, the channels are corrected first and every step below then works on the corrected channels — see [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals).
 
-1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. It is off by default, and it changes nothing except these single-channel predictions. If a channel's probability comes back uniformly 0.5 at every pixel — what ilastik returns for an image holding only one class, see the [Notes](#notes) under **Decode FluoCodes from Probability Map** below — it is replaced by zero. Because *P*<sub>ab\*</sub> is a per-pixel minimum that includes the single-channel probabilities, that channel then contributes nothing to any pair it belongs to.
+1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted before it is classified. 
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
-   where *k* is the leakage parameter. Hue extraction reads the channels themselves, not the single-channel predictions, so the residual unmixing leakage correction of step 1 never reaches *I*<sub>ab</sub>.
+   where *k* is the leakage parameter. 
 3. **Probability map.** *I*<sub>ab</sub> is classified with the same classifier, giving the probability map *P*<sub>ab</sub>.
 4. **Corrected probability map.** *P*<sub>ab\*</sub> is the per-pixel minimum of the two single-channel probabilities and *P*<sub>ab</sub>. This is the map that is saved and decoded.
-
-#### Subtraction of FRET-derived signals
-
-When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
-<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
-
-Ticking the option opens a table, and each row takes four values:
-
-| Field | Meaning |
-|---|---|
-| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
-| Channel C | the channel its signal appears in; must differ from A and B |
-| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
-
-`min(A, B) × x` is the leak the row accounts for. Each row's leak is added onto its own channel *C*, so a channel named by several rows collects the leak of all of them, and that channel becomes `max(0, C − leak)`. Every `min(A, B)` is taken from the uncorrected image, and the correction is applied **once per channel**, not again per pair.
-
-The corrected channels are then what the rest of the run uses: the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. Channels no row names are left untouched, and the image you started from is never modified. Give one row per FluoCode that shows FRET; a row naming a channel the image does not have is skipped, with a warning in the Log.
-
-### Options
-<img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
 
 
 | Option | Description |
@@ -112,6 +89,25 @@ The corrected channels are then what the rest of the run uses: the single-channe
 | Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended. |
 
 At least one output must be selected.
+
+#### Subtraction of FRET-derived signals
+
+When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
+<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
+
+Ticking the option opens a table, and each row takes four values:
+
+| Field | Meaning |
+|---|---|
+| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
+| Channel C | the channel its signal appears in; must differ from A and B |
+| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
+
+`min(A, B) × x` is the leak the row accounts for. 
+The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
+
+### Options
+<img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
 
 ### Pair numbering
 
