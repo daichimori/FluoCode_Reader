@@ -79,7 +79,7 @@ If any FRET rows are configured, the channels are corrected first and every step
 #### Subtraction of FRET-derived signals
 
 When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
-<img width="1920" height="1032" alt="image" src="https://github.com/user-attachments/assets/4967b0d6-350c-44a7-8c6d-ac0a543ca849" />
+<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
 
 Ticking the option opens a table, and each row takes four values:
 
