@@ -90,22 +90,6 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 
 At least one output must be selected.
 
-#### Subtraction of FRET-derived signals
-
-When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
-<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
-
-Ticking the option opens a table, and each row takes four values:
-
-| Field | Meaning |
-|---|---|
-| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
-| Channel C | the channel its signal appears in; must differ from A and B |
-| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
-
-`min(A, B) × x` is the leak the row accounts for. 
-The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
-
 ### Options
 <img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
 
@@ -122,6 +106,24 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 | `Decoded_<name>.tif` | Decoded FluoCode image, 8-bit: 0 = background, 1…*N*(*N*−1)/2 = FluoCode (pair number), 255 = saturated. A label LUT is applied. |
 
 **Decode FluoCodes from Probability Map** writes its output under the same name, `Decoded_<name>.tif`, because it works on the same probability map by the same decoding rule. Re-decoding `Prob_<name>.tif` into the same folder therefore replaces the image written here. Use a separate save directory if you want to keep both.
+
+
+#### Subtraction of FRET-derived signals
+
+When a FluoCode undergoes FRET, part of its signal appears in a channel that was not labeled for it, and hue extraction then calls pairs that are not really there. **Subtract FRET-derived signals** removes those pairs. The correction is the one described in Figure S5 of the paper; it is not linear unmixing.
+<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
+
+Ticking the option opens a table, and each row takes four values:
+
+| Field | Meaning |
+|---|---|
+| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
+| Channel C | the channel its signal appears in; must differ from A and B |
+| FRET leakage parameter *x* | the fraction of the *A*+*B* signal to subtract (0–1) |
+
+`min(A, B) × x` is the leak the row accounts for. 
+The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
+
 
 ---
 
