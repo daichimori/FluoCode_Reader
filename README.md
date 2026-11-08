@@ -153,7 +153,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Atlas files
 
-**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is aligned to the sample. Two files are provided in :
+**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is aligned to the sample. Two files are provided [here](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/annotationAtlas.zip).
 
 **1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
 
