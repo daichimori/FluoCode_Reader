@@ -30,8 +30,10 @@ After installation, the plugin appear under **Plugins › FluoCode Reader**:
 ### ilastik — for `.ilp` project files (recommended)
 
 - **The ilastik application is required**, not only its Fiji plugin. You perform the labeling and training, and save the `.ilp` project file for FluoCode Reader.
+- 
 - **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed , for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, prediction fails and FluoCode Reader cannot produce probability maps. Set it again whenever ilastik is moved, reinstalled or updated.
-- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that the ilastik has open.
+- 
+>Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that the ilastik has open.
 
 ### Labkit — for Labkit classifier files
 
