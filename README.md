@@ -30,7 +30,7 @@ After installation, the plugin appear under **Plugins › FluoCode Reader**:
 
 - Fiji (or ImageJ 1.x), Java 8 or later
 
-- A pixel classifier, which FluoCode Reader generate probability maps. The plugin does not train a classifier: you train one beforehand. Install one of the following tools.
+- A pixel classifier which generate probability maps. This plugin does not train a classifier: you train one beforehand. Install one of the following tools.
 
 
 
