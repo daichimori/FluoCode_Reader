@@ -3,7 +3,8 @@
 An ImageJ / Fiji plugin  for decoding FluoCodes from multichannel fluorescent images.
 
 Each pair of channels uniquely defines one FluoCode.
-It can decode up to *N*(*N*−1)/2 labels (where *N* is the number of channels).
+
+It can decode up to *N*(*N*−1)/2 labels, where *N* is the number of channels.
 
 
 ## Installation
