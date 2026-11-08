@@ -273,7 +273,7 @@ Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoC
 
 ## Example data
 
-[Example data]() for trying the plugin .
+[Example data](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/ExampleData_FluoCodes.zip) for trying the plugin .
 
 | File | Content |
 |---|---|
