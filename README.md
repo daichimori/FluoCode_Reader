@@ -8,7 +8,7 @@ It can decode up to *N*(*N*−1)/2 labels (where *N* is the number of channels).
 
 ## Installation
 
-1. Download `FluoCode_Reader-1.0.0.jar` from the [Releases](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/FluoCode_Reader-1.0.0.jar) page.
+1. Download [`FluoCode_Reader-1.0.0.jar`](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/FluoCode_Reader-1.0.0.jar) page.
 2. Copy it into the `plugins` folder of Fiji. If an older version of the JAR is present, remove it first.
 3. Restart Fiji.
 
