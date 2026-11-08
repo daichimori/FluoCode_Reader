@@ -1,8 +1,9 @@
 # FluoCode Reader
 
-An ImageJ / Fiji plugin suite for decoding multiplexed fluorescent barcodes (FluoCodes) from multichannel images and quantifying them per region.
+An ImageJ / Fiji plugin  for decoding FluoCodes from multichannel fluorescent images.
 
-Each FluoCode is defined by a **pair of channels**. For an image with *N* channels, all *N*(*N*−1)/2 channel pairs are evaluated, and each pair corresponds to one FluoCode label.
+Each pair of channels uniquely defines one FluoCode.
+It can decode up to *N*(*N*−1)/2 labels (where *N* is the number of channels).
 
 
 ## Installation
@@ -13,32 +14,23 @@ Each FluoCode is defined by a **pair of channels**. For an image with *N* channe
 
 ## Menu
 
-After installation, the tools appear under **Plugins › FluoCode Reader**:
+After installation, the plugin appear under **Plugins › FluoCode Reader**:
 
 | Command | Purpose |
 |---|---|
-| **FluoCode Reader...** | Main tool. Generates corrected FluoCode probability maps from unmixed multichannel images, and optionally decodes them into a decoded FluoCode image. |
-| **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a decoded FluoCode image, without re-running the classifiers. |
-| **Count Decoded Pixels per Region...** | Counts decoded FluoCode pixels within each region of a segmentation image. |
-| **Draw Region Boundaries on Decoded FluoCodes...** | Displays a decoded FluoCode image with the region boundaries of a segmentation image drawn on it. |
-
-Typical workflow: **FluoCode Reader** → **Count Decoded Pixels per Region**.
-
-The other two commands sit beside this workflow rather than inside it:
-
-- **Decode FluoCodes from Probability Map** — it re-decodes an already saved probability map at a different decoding threshold, or with some FluoCodes left out, so that trying another threshold does not mean running the classifiers again from the start.
-- **Draw Region Boundaries on Decoded FluoCodes** — it shows where the region boundaries fall on a decoded FluoCode image, for figures and for judging the atlas registration by eye. It can be run on a decoded FluoCode image at any time; counting is not the only way to look at the data.
-
-## Requirements
+| **FluoCode Reader...** | Main tool.  Decodes from unmixed multichannel images into a decoded FluoCode image and also generates probability maps from them. |
+| **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a decoded FluoCode image. Trying another threshold does not need the machine learning classification again.|
+| **Count Decoded Pixels per Region...** | Counts decoded FluoCod pixels within each region of a segmentation image. |
+| **Draw Region Boundaries on Decoded FluoCodes...** | Displays a decoded FluoCode image with the region boundaries generated from the registered brain atlas image|
 
 - Fiji (or ImageJ 1.x), Java 8 or later
-- A pixel classifier, which FluoCode Reader calls to turn images into probability maps. The plugin does not train a classifier itself: you train one beforehand and pass the resulting file to it as the **Classifier File**. Install one of the following, depending on which kind of classifier file you use.
+- A pixel classifier, which FluoCode Reader generate probability maps. The plugin does not train a classifier: you train one beforehand. Install one of the following tools.
 
 ### ilastik — for `.ilp` project files (recommended)
 
-- **The ilastik application is required**, not only its Fiji plugin. You do the labeling there, and that labeling is what produces the `.ilp` project file for FluoCode Reader.
-- **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed — on Windows, for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, and set to the real installation, prediction fails and FluoCode Reader cannot produce probability maps. Set it once per Fiji installation, and again whenever ilastik is moved, reinstalled or updated.
-- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that the ilastik application has open.
+- **The ilastik application is required**, not only its Fiji plugin. You perform the labeling and training, and save the `.ilp` project file for FluoCode Reader.
+- **The ilastik Fiji plugin is required** (it provides `Run Pixel Classification Prediction`), and **it must be configured before use**. In Fiji, run **Plugins › ilastik › Configure ilastik executable location** and point it at the ilastik executable inside the directory where ilastik is installed , for example, `C:\Program Files\ilastik-1.4.0\ilastik.exe`. Until this path is set, prediction fails and FluoCode Reader cannot produce probability maps. Set it again whenever ilastik is moved, reinstalled or updated.
+- Keep the `.ilp` project **closed in ilastik** while FluoCode Reader runs. The plugin cannot use a project file that the ilastik has open.
 
 ### Labkit — for Labkit classifier files
 
@@ -56,14 +48,14 @@ The other two commands sit beside this workflow rather than inside it:
 
 A drop-down list lets you choose one of the following:
 
-- **An open image** — every image currently open in Fiji is listed. The image is processed as displayed and is not closed afterwards.
+- **An open image** — every image currently open in Fiji is listed.
 - **Select Image File...** — a single image file.
-- **Select Folder...** — every file in the folder that Fiji can open is processed.
+- **Select Folder...** — every file in the folder is processed.
 
-Each image should be an **unmixed multichannel image**. The number of channels *N* is read from the image itself, and it is what determines the *N*(*N*−1)/2 channel pairs that are evaluated.
+Each image should be an **unmixed multichannel image**. 
 
 >
-> To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...** — or one at a time from **Select Image File...**. Each file then gets its own set of outputs. If those results are later to be counted per region as a volume, combine the resulting `Decoded_<name>.tif` files into one stack (**Image › Stacks › Images to Stack**), so that the stack matches the slices of the registered atlas.
+> To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...**. 
 
 ### Processing overview
 
@@ -80,14 +72,14 @@ Each image should be an **unmixed multichannel image**. The number of channels *
 |---|---|
 | Save directory | Output folder (required). |
 | Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
-| Leakage parameter k (0–1) | The *k* of the hue-extraction formula above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* removes more signal, so pair calling becomes **stricter**.|
+| Leakage parameter k (0–1) | The *k* of the hue-extraction parameter above: the fraction of the brightest *other* channel without `min(a, b)`. A larger *k* means **stricter** threshold.|
 | Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). `min(A, B) × x` is subtracted from channel C, and everything downstream then uses the corrected channel. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
-| Save corrected probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
+| Save probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). Off by default. |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
 | Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended. |
-| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 instead of a FluoCode. A saturated channel no longer reports its true intensity, so the hue cannot be recovered for such a pixel. Label 255 is therefore an exception to classification. |
-| Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. |
+| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 as an exception to classification since saturated pixels no longer tells its true intensity. |
+| Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. Off by default.|
 | Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended. |
 
 At least one output must be selected.
@@ -103,7 +95,7 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 
 | File | Content |
 |---|---|
-| `Prob_<name>.tif` | Corrected probability map stack *P*<sub>ab\*</sub> (8-bit, 0–255) |
+| `Prob_<name>.tif` |  Probability map stack *P*<sub>ab\*</sub> (8-bit, 0–255) |
 | `HueExtracted_<name>.tif` | Hue-extracted image stack *I*<sub>ab</sub> (16-bit) |
 | `Decoded_<name>.tif` | Decoded FluoCode image, 8-bit: 0 = background, 1…*N*(*N*−1)/2 = FluoCode (pair number), 255 = saturated. A label LUT is applied. |
 
@@ -123,7 +115,6 @@ Ticking the option opens a table, and each row takes four values:
 | FRET leakage parameter *x* | the fraction of min(a, b) to subtract |
 
 The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
-
 
 ---
 
@@ -186,7 +177,7 @@ Counts how many pixels carry each FluoCode label for each region.
 
 ### Usage
 
-1. Open the region segmentation image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices. Multi-slice stacks are supported; counts are summed over all slices. The segmentation image must already be registered to the sample — see [Atlas files](#atlas-files).
+1. Open the region segmentation image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices. Multi-slice stacks are supported; counts are summed over all slices. Therefore, if you want to count decoded results per region as a volume like whole-brain mapping, you need to combine the resulting `Decoded_<name>.tif` files into one stack (**Image › Stacks › Images to Stack**). The segmentation image must already be registered to the sample — see [Atlas files](#atlas-files).
 2. Run the command (an image must be open).
 3. In the dialog:
     - **Allen Atlas:** the region segmentation image.
