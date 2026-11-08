@@ -20,11 +20,8 @@ After installation, the plugin appear under **Plugins › FluoCode Reader**:
 | Command | Purpose |
 |---|---|
 | **FluoCode Reader...** | Main tool.  Decodes from unmixed multichannel images into a decoded FluoCode image and also generates probability maps from them. |
-
 | **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a decoded FluoCode image. Trying another threshold does not need the machine learning classification again.|
-
 | **Count Decoded Pixels per Region...** | Counts decoded FluoCod pixels within each region of a segmentation image. |
-
 | **Draw Region Boundaries on Decoded FluoCodes...** | Displays a decoded FluoCode image with the region boundaries generated from the registered brain atlas image|
 
 - Fiji (or ImageJ 1.x), Java 8 or later
