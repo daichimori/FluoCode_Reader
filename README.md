@@ -72,32 +72,46 @@ Each image should be an **unmixed multichannel image**.
 ### Processing overview
 
 
-1. **Single-channel prediction.** Each single-color channel is classified, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs if linear unmixing leaves some leakage between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the leakage parameter subtracted. 
+1. **Single-channel prediction.** Each single-color channel is classified, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some leakage between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the leakage parameter subtracted. 
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
    where *k* is the leakage parameter. 
 3. **Probability map.** *I*<sub>ab</sub> is classified with the same classifier, giving the probability map *P*<sub>ab</sub>.
 4. **Corrected probability map.** *P*<sub>ab\*</sub> is the per-pixel minimum of the two single-channel probabilities and *P*<sub>ab</sub>. This is the map that is saved and decoded.
 
+### Subtraction of FRET-derived signals
+
+<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
+
+Ticking the option opens a table, and each row takes four values:
+
+| Field | Meaning |
+|---|---|
+| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
+| Channel C | the channel its signal appears in; must differ from A and B |
+| FRET leakage parameter *x* | the fraction of min(a, b) to subtract |
+
+The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
+
+### Options
+<img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
 
 | Option | Description |
 |---|---|
 | Save directory | Output folder (required). |
 | Classifier File | `.ilp` files are run with ilastik; any other file is run with Labkit (required). |
-| Leakage parameter k (0–1) | The *k* of the hue-extraction parameter above: the fraction of the brightest *other* channel without `min(a, b)`. A larger *k* means **stricter** threshold.|
+| Leakage parameter k (0–1) | The *k* of the hue-extraction parameter above: the fraction of the brightest *other* channel subtracted from `min(a, b)`. A larger *k* means **stricter** threshold.|
 | Subtract FRET-derived signals | Opens a table of rows (Channel A, Channel B, Channel C, FRET leakage parameter *x*). `min(A, B) × x` is subtracted from channel C, and everything downstream then uses the corrected channel. Channel C must differ from A and B. See [Subtraction of FRET-derived signals](#subtraction-of-fret-derived-signals) above. |
 | Save probability map (P_ab*) | Saves *P*<sub>ab\*</sub> for every pair (8-bit, one slice per pair). On by default. |
 | Save hue-extracted images (I_ab) | Saves *I*<sub>ab</sub> for every pair (16-bit). Off by default. |
 | Save decoded FluoCode image | Saves the decoded FluoCode image (see below). On by default.|
 | Decoding threshold (0.1–1) | Pixels whose highest *P*<sub>ab\*</sub> is below this value are labeled 0. The default value (0.2) is recommended. |
-| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 as an exception to classification since saturated pixels no longer tells its true intensity. |
+| Saturated Value (0–65535) | Pixels where any raw channel reaches this value are **taken out of decoding** and labeled 255 as an exception to classification since saturated pixels no longer tell their true intensity. |
 | Correct residual unmixing leakage / Channel group 1–3 | Each field defines one group of channels that still leak into each other after linear unmixing, e.g. `1-3` or `4,5`. Before single-channel classification, each channel in a group has the brightest other channel of the **same group** × unmixing leakage parameter subtracted. Off by default.|
 | Unmixing leakage parameter (0–1) | The subtraction factor of the residual unmixing leakage correction. Distinct from the leakage parameter *k* of hue extraction. The default value (0.2) is recommended. |
 
 At least one output must be selected.
 
-### Options
-<img width="486" height="540" alt="image" src="https://github.com/user-attachments/assets/ef9c9915-b86e-4ede-a78c-90a4924d5b86" />
 
 ### Pair numbering
 
@@ -112,21 +126,6 @@ Pairs are numbered in the order (1,2), (1,3), …, (1,*N*), (2,3), …, (*N*−1
 | `Decoded_<name>.tif` | Decoded FluoCode image, 8-bit: 0 = background, 1…*N*(*N*−1)/2 = FluoCode (pair number), 255 = saturated. A label LUT is applied. |
 
 **Decode FluoCodes from Probability Map** writes its output under the same name, `Decoded_<name>.tif`, because it works on the same probability map by the same decoding rule. Re-decoding `Prob_<name>.tif` into the same folder therefore replaces the image written here. Use a separate save directory if you want to keep both.
-
-
-#### Subtraction of FRET-derived signals
-
-<img width="451" height="489" alt="image" src="https://github.com/user-attachments/assets/5759c293-3e8f-4df6-b50e-5fa3476af3d3" />
-
-Ticking the option opens a table, and each row takes four values:
-
-| Field | Meaning |
-|---|---|
-| Channel A, Channel B | the two channels of the FluoCode that undergoes FRET |
-| Channel C | the channel its signal appears in; must differ from A and B |
-| FRET leakage parameter *x* | the fraction of min(a, b) to subtract |
-
-The corrected channels are used for the single-channel predictions of step 1, and both `min(a, b)` and `max(other channels)` in step 2. 
 
 ---
 
