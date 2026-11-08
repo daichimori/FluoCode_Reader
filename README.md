@@ -13,6 +13,10 @@ It can decode up to *N*(*N*−1)/2 labels, where *N* is the number of channels.
 2. Copy it into the `plugins` folder of Fiji. If an older version of the JAR is present, remove it first.
 3. Restart Fiji.
 
+- Fiji (or ImageJ 1.x), Java 8 or later
+- A pixel classifier, which FluoCode Reader generate probability maps. The plugin does not train a classifier: you train one beforehand. Install one of the following tools.
+
+
 ## Menu
 
 After installation, the plugin appear under **Plugins › FluoCode Reader**:
@@ -23,9 +27,6 @@ After installation, the plugin appear under **Plugins › FluoCode Reader**:
 | **Decode FluoCodes from Probability Map...** | Decodes an existing probability map into a decoded FluoCode image. Trying another threshold does not need the machine learning classification again.|
 | **Count Decoded Pixels per Region...** | Counts decoded FluoCod pixels within each region of a segmentation image. |
 | **Draw Region Boundaries on Decoded FluoCodes...** | Displays a decoded FluoCode image with the region boundaries generated from the registered brain atlas image|
-
-- Fiji (or ImageJ 1.x), Java 8 or later
-- A pixel classifier, which FluoCode Reader generate probability maps. The plugin does not train a classifier: you train one beforehand. Install one of the following tools.
 
 
 ### ilastik — for `.ilp` project files (recommended)
