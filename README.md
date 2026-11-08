@@ -67,12 +67,12 @@ A drop-down list lets you choose one of the following:
 Each image should be an **unmixed multichannel image**. 
 
 >
-> To process data at several z positions, save each z position as its own TIFF file, collect those files in one folder, and process them from **Select Folder...**. 
+> To process data at several z positions, save each z position as individual TIFF file, collect those files in one folder, and process them from **Select Folder...**. 
 
 ### Processing overview
 
 
-1. **Single-channel prediction.** Each channel is classified on its own, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs first: linear unmixing leaves some signal leaking between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the unmixing leakage parameter subtracted. 
+1. **Single-channel prediction.** Each single-color channel is classified, giving one probability map per channel. Optionally, a residual unmixing leakage correction runs if linear unmixing leaves some leakage between spectrally close channels, so each channel has the brightest other channel *of its own channel group* × the leakage parameter subtracted. 
 2. **Hue extraction.** For each channel pair (*a*, *b*), the hue-extracted image *I*<sub>ab</sub> is formed from the **raw** channels:
    `I_ab = max(0, min(a, b) − max(other channels) × k)`
    where *k* is the leakage parameter. 
