@@ -273,9 +273,7 @@ Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoC
 
 ## Example data
 
-Example data for trying the plugin is to be deposited on Zenodo.
-
-- **Zenodo record:** _URL to be added_
+[Example data]() for trying the plugin .
 
 | File | Content |
 |---|---|
