@@ -19,3 +19,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+-------------------------------------------------------------------------------
+THIRD-PARTY DATA
+
+The MIT License above applies to the code and documentation of FluoCode Reader
+only. It does not apply to the atlas-derived files distributed with this
+project:
+
+  - src/main/resources/value_name_.csv   (brain region list)
+  - annotationAtlas.tif                  (distributed in the release assets)
+
+Both are derived from the annotation volume of the Allen Mouse Brain Common
+Coordinate Framework version 3 (CCFv3), (c) Allen Institute for Brain Science,
+and are governed by the Allen Institute Terms of Use:
+
+  https://alleninstitute.org/legal/terms-of-use/
+
+Those terms permit use and redistribution for research or other noncommercial
+purposes only; redistribution for commercial purposes requires written
+permission from the Allen Institute. Use of these files also requires citation
+in accordance with the Allen Institute Citation Policy:
+
+  https://alleninstitute.org/legal/citation-policy/
+
+Citation for the atlas files:
+
+  Wang, Q., Ding, S.-L., Li, Y., et al. (2020). The Allen Mouse Brain Common
+  Coordinate Framework: A 3D Reference Atlas. Cell 181(4), 936-953.e20.
+  https://doi.org/10.1016/j.cell.2020.04.007

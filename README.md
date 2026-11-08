@@ -164,6 +164,8 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Atlas files
 
+> The atlas files are derived from the Allen Mouse Brain CCFv3 and are **not** covered by this project's MIT License. See [License](#license) before redistributing them or using them for commercial purposes.
+
 **Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is aligned to the sample. Two files are provided [here](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/annotationAtlas.zip).
 
 **1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
@@ -281,7 +283,22 @@ Plugins>FluoCode Reader, "Draw Region Boundaries on Decoded FluoCodes...", FluoC
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+The code and documentation of this project are licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+### Third-party data
+
+The atlas-derived files are **not** covered by the MIT License:
+
+| File | Where it is distributed |
+|---|---|
+| `value_name_.csv` | `src/main/resources/` in this repository, and the [atlas files release](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/annotationAtlas.zip) |
+| `annotationAtlas.tif` | The [atlas files release](https://github.com/daichimori/FluoCode_Reader/releases/download/v1.0.0/annotationAtlas.zip) |
+
+Both are derived from the annotation volume of the Allen Mouse Brain Common Coordinate Framework version 3 (CCFv3), © Allen Institute for Brain Science, and are governed by the [Allen Institute Terms of Use](https://alleninstitute.org/legal/terms-of-use/) rather than by the MIT License. Under those terms they may be used and redistributed **for research or other noncommercial purposes only**; redistribution for commercial purposes requires written permission from the Allen Institute. Their use also requires citation in accordance with the [Allen Institute Citation Policy](https://alleninstitute.org/legal/citation-policy/).
+
+If you use the atlas files, cite:
+
+> Wang, Q., Ding, S.-L., Li, Y., et al. (2020). The Allen Mouse Brain Common Coordinate Framework: A 3D Reference Atlas. *Cell* 181(4), 936–953.e20. https://doi.org/10.1016/j.cell.2020.04.007
 
 ## Citation
 
