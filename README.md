@@ -122,6 +122,8 @@ The corrected channels are used for the single-channel predictions of step 1, an
 
 Decodes a probability map stack (for example, `Prob_<name>.tif` from FluoCode Reader) into a decoded FluoCode image. Useful for re-decoding with a different threshold without repeated classification tasks.
 
+<img width="201" height="95" alt="image" src="https://github.com/user-attachments/assets/b35b2a92-4eab-4278-9bf8-60f7d6d1fca1" />
+
 ### Input
 
 The same drop-down list as FluoCode Reader (an open image, an image file, or a folder).
@@ -135,7 +137,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 |---|---|
 | Save directory | Output folder (required). |
 | Threshold (0–1) | Pixels whose maximum probability is below this value are labeled 0. The default value (0.2) is recommended. |
-| Slices to exclude (optional) | Slices (1-based, comma-separated, e.g. `3,5`) to ignore during decoding, so that the FluoCodes they carry are left out of the result. Leave it empty — the default — to use every slice. Numbers that do not exist in the image are reported in the Log. |
+| Slices to exclude (optional) | Slices (1-based, comma-separated, e.g. `2,10`) to ignore during decoding, so that the FluoCodes they carry are left out of the result. Leave it empty — the default — to use every slice. Numbers that do not exist in the image are reported in the Log. |
 | LUT file (optional) | LUT applied to the output. If empty, the same label palette as FluoCode Reader is used. |
 
 
@@ -151,10 +153,7 @@ The same drop-down list as FluoCode Reader (an open image, an image file, or a f
 
 ## Atlas files
 
-**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is already aligned to the sample. Two files are provided for this, deposited on Zenodo:
-
-- **Zenodo record:** _URL to be added_
-- **DOI:** _to be added_
+**Count Decoded Pixels per Region** and **Draw Region Boundaries on Decoded FluoCodes** both need a region segmentation image that is aligned to the sample. Two files are provided in :
 
 **1. `annotationAtlas.tif` — atlas segmentation image (16-bit TIFF)**
 
@@ -167,7 +166,8 @@ Use **nearest-neighbor interpolation** during warping, so that pixel values rema
 
 A two-column list mapping pixel values in `annotationAtlas.tif` to region names.
 
-To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas.
+To use a modified list with the plugin, edit the CSV and rebuild the JAR (see [Building from source](#building-from-source)). 
+When editing it, save as UTF-8 **without BOM** and **without a header line**, keep pixel values within 0–65535, and keep region names unique and free of commas.
 
 ---
 
@@ -192,23 +192,25 @@ Counts how many pixels carry each FluoCode label for each region.
 |---|---|
 | Region | Region name |
 | Pixel Counts | Total number of pixels in the region |
-| Value 1 … Value *n* Pixel Count | Number of pixels in the region with each FluoCode label, one column per label, where *n* is **Number of FluoCodes** |
+| Value 1 … Value *n* Pixel Count | Number of pixels in the region with each FluoCode, one column per label, where *n* is **Number of FluoCodes** |
 
 Labels outside 1…*n* are not counted per value, but are included in the region total; this covers background (0) and saturated pixels (255). If any pixel of the selected regions carries a label above *n*, the Log reports how many there are and the highest label found, so that **Number of FluoCodes** can be corrected.
 
 ### Region names
 
-The region names offered in the dialog and written to the Results table come from the region list inside the JAR, which also fixes which pixel value of the segmentation image belongs to which region. Only regions on that list can be counted. The same list is distributed with the atlas files as `value_name_.csv`; see [Atlas files](#atlas-files) above to inspect it or to use a list of your own.
+The list of region names offered in the dialog. Only regions on that list can be counted. 
+The same list is distributed with the atlas files as `value_name_.csv`.
 
 ---
 
 ## Draw Region Boundaries on Decoded FluoCodes...
 
-Displays a copy of a decoded FluoCode image with the boundaries of all regions of a segmentation image drawn on it, for figures and visual inspection. Display only: neither input image is modified and nothing is saved.
+Displays a copy of a decoded FluoCode image with the boundaries of all regions of a segmentation image, for visualization. 
+Display only: neither input image is modified and nothing is saved.
 
 ### Usage
 
-1. Open the region segmentation image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices.
+1. Open the atlas image and the decoded FluoCode image (`Decoded_<name>.tif`). Both must have the same size and number of slices.
 2. Run the command.
 3. In the dialog:
     - **Allen Atlas:** the region segmentation image.
